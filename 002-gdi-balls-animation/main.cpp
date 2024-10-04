@@ -1,9 +1,10 @@
+#include <chrono>
 #include <windows.h>
 #include <tchar.h>
 #include <vector>
 #include <random>
 
-#define M_PI       3.14159265358979323846   // pi
+constexpr double M_PI = 3.14159265358979323846;
 
 class Ball {
 
@@ -12,20 +13,21 @@ public:
   double X{0};
   double Y{0};
   double Angle{0};
-  double Speed{0};
+  double FutureAngle{0};
+  double Speed{100.};
 
-  Ball(const double radius, const double x, const double y)
-    : Radius{radius},
-      X{x},
+  Ball(const double x, const double y)
+    : X{x},
       Y{y} {
 
     static std::mt19937 gen(std::random_device{}());
 
     std::uniform_real_distribution<double> distAngle(0.0, M_PI * 2.);
-    std::uniform_real_distribution<double> distSpeed(50.0, 100.0);
+    std::uniform_real_distribution<double> distRadius(20., 50.);
 
     Angle = distAngle(gen);
-    Speed = distSpeed(gen);
+    FutureAngle = Angle;
+    Radius = distRadius(gen);
   }
 
   void Draw(const HDC hdc) const {
@@ -36,27 +38,83 @@ public:
         static_cast<int>(X + Radius),
         static_cast<int>(Y + Radius));
   }
+
+  void BounceOff(const Ball& other) {
+    double dx = X - other.X;
+    double dy = Y - other.Y;
+    FutureAngle = atan2(dy, dx); // Изменяем будущее направление
+  }
+
+  // Function for changing direction when colliding with walls
+  void BounceOffWalls(int arenaWidth, int arenaHeight) {
+    if (X - Radius < 0) {
+      FutureAngle = M_PI - Angle;
+      X = Radius; // Adjusting position
+    } else if (X + Radius > arenaWidth) {
+      FutureAngle = M_PI - Angle;
+      X = arenaWidth - Radius; // Adjusting position
+    }
+
+    if (Y - Radius < 0) {
+      FutureAngle = -Angle;
+      Y = Radius; // Adjusting position
+    } else if (Y + Radius > arenaHeight) {
+      FutureAngle = -Angle;
+      Y = arenaHeight - Radius; // Adjusting position
+    }
+  }
+
+  // Apply the future direction (after all calculations)
+  void ApplyNewDirection() {
+    Angle = FutureAngle;
+  }
+
+  // Checking collision with another ball
+  bool IsCollidingWith(const Ball& other) const {
+    double dx = X - other.X;
+    double dy = Y - other.Y;
+    double distance = sqrt(dx * dx + dy * dy);
+    return distance <= (Radius + other.Radius);
+  }
 };
 
 class BallsCollection {
   std::vector<Ball> Items{};
 
 public:
-  void update(const double deltaTime, int arenaWidth, int arenaHeight) {
+  void Update(const double deltaTime, int arenaWidth, int arenaHeight) {
     for (auto& ball : Items) {
       ball.X += deltaTime * ball.Speed * cos(ball.Angle);
       ball.Y += deltaTime * ball.Speed * sin(ball.Angle);
+
+      ball.BounceOffWalls(arenaWidth, arenaHeight);
+    }
+
+    // Checking collisions of balls with each other
+    for (size_t i = 0; i < Items.size(); ++i) {
+      for (size_t j = i + 1; j < Items.size(); ++j) {
+        if (Items[i].IsCollidingWith(Items[j])) {
+          // Change the direction of movement for both balls
+          Items[i].BounceOff(Items[j]);
+          Items[j].BounceOff(Items[i]);
+        }
+      }
+    }
+
+    // Apply all angle changes only after all calculations
+    for (auto& ball : Items) {
+      ball.ApplyNewDirection();
     }
   }
 
-  void draw(HDC hdc) const {
-    for (auto& ball : Items) {
+  void Draw(HDC hdc) const {
+    for (const auto& ball : Items) {
       ball.Draw(hdc);
     }
   }
 
-  void add(int x, int y) {
-    Items.push_back(Ball{50.0, static_cast<double>(x), static_cast<double>(y)});
+  void Add(int x, int y) {
+    Items.emplace_back(Ball{static_cast<double>(x), static_cast<double>(y)});
   }
 };
 
@@ -66,30 +124,35 @@ LRESULT CALLBACK WndProc(const HWND hWnd, const UINT message, const WPARAM wPara
 
   static auto ballsCollection = BallsCollection{};
 
-  static LARGE_INTEGER frequency;
-  static LARGE_INTEGER lastTime;
-  static LARGE_INTEGER currentTime;
+  using clock = std::chrono::high_resolution_clock;
+  static clock::time_point lastTime;
+
+  // static LARGE_INTEGER frequency;
+  // static LARGE_INTEGER lastTime;
+  // static LARGE_INTEGER currentTime;
   static HBRUSH hBrushBackground = CreateSolidBrush(RGB(245, 248, 250));
 
   switch (message) {
   case WM_CREATE: {
+    lastTime = clock::now();
+
     HDC hdc = GetDC(NULL); // NULL means that we are requesting information for the entire screen		
     const auto refreshRate = GetDeviceCaps(hdc, VREFRESH);
     ReleaseDC(NULL, hdc);
     const auto elapse = 1000 / refreshRate;
 
-    QueryPerformanceFrequency(&frequency);
-    QueryPerformanceCounter(&lastTime);
-
     SetTimer(hWnd, 1, elapse, NULL);
+
     break;
   }
+
   case WM_ERASEBKGND:
     return 1;
+
   case WM_LBUTTONDOWN: {
     auto x = LOWORD(lParam);
     auto y = HIWORD(lParam);
-    ballsCollection.add(x, y);
+    ballsCollection.Add(x, y);
     InvalidateRect(hWnd, NULL, TRUE);
     break;
   }
@@ -101,14 +164,12 @@ LRESULT CALLBACK WndProc(const HWND hWnd, const UINT message, const WPARAM wPara
   }
 
   case WM_TIMER: {
-
-    QueryPerformanceCounter(&currentTime);
-
-    double deltaTime = static_cast<double>(currentTime.QuadPart - lastTime.QuadPart) / frequency.QuadPart;
-
-    ballsCollection.update(deltaTime, arenaWidth, arenaHeight);
-
+    auto currentTime = clock::now();
+    std::chrono::duration<double> deltaTime = currentTime - lastTime;
     lastTime = currentTime;
+
+    ballsCollection.Update(deltaTime.count(), arenaWidth, arenaHeight);
+
     InvalidateRect(hWnd, NULL, TRUE);
     break;
   }
@@ -126,9 +187,9 @@ LRESULT CALLBACK WndProc(const HWND hWnd, const UINT message, const WPARAM wPara
 
     FillRect(hdc, &rect, hBrushBackground);
 
-    ballsCollection.draw(hdc);
+    ballsCollection.Draw(hdc);
 
-    BitBlt(hdcOrig, 0, 0, rect.right, rect.bottom, hdc, 0, 0, SRCCOPY);
+    BitBlt(hdcOrig, 0, 0, rect.right, rect.bottom, hdc, 0, 0, SRCCOPY);  // NOLINT(readability-suspicious-call-argument)
 
     SelectObject(hdc, hOldBitmap);
     DeleteObject(hbm);
@@ -173,12 +234,12 @@ int APIENTRY WinMain(
 
   const HWND hWnd = CreateWindowW(
       className,
-      L"Balls",
+      L"Balls (click to add)",
       WS_OVERLAPPEDWINDOW,
       CW_USEDEFAULT,
       0,
-      1000,
-      1000,
+      600,
+      600,
       nullptr,
       nullptr,
       hInstance,
