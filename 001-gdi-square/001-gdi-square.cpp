@@ -4,7 +4,7 @@
 #include "001-gdi-square.h"
 #include "framework.h"
 
-#define MAX_LOADSTRING 100
+constexpr auto MAX_LOADSTRING = 100;
 
 // Global Variables:
 HINSTANCE hInst; // current instance
@@ -22,9 +22,9 @@ LRESULT CALLBACK WndProc(HWND, UINT, WPARAM, LPARAM);
 INT_PTR CALLBACK About(HWND, UINT, WPARAM, LPARAM);
 
 int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
-    _In_opt_ HINSTANCE hPrevInstance,
-    _In_ LPWSTR lpCmdLine,
-    _In_ int nCmdShow)
+                      _In_opt_ HINSTANCE hPrevInstance,
+                      _In_ LPWSTR lpCmdLine,
+                      _In_ int nCmdShow)
 {
     UNREFERENCED_PARAMETER(hPrevInstance);
     UNREFERENCED_PARAMETER(lpCmdLine);
@@ -37,7 +37,8 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
     MyRegisterClass(hInstance);
 
     // Perform application initialization:
-    if (!InitInstance(hInstance, nCmdShow)) {
+    if (!InitInstance(hInstance, nCmdShow))
+    {
         return FALSE;
     }
 
@@ -46,21 +47,18 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
     MSG msg;
 
     // Main message loop:
-    while (GetMessage(&msg, nullptr, 0, 0)) {
-        if (!TranslateAccelerator(msg.hwnd, hAccelTable, &msg)) {
+    while (GetMessage(&msg, nullptr, 0, 0))
+    {
+        if (!TranslateAccelerator(msg.hwnd, hAccelTable, &msg))
+        {
             TranslateMessage(&msg);
             DispatchMessage(&msg);
         }
     }
 
-    return (int)msg.wParam;
+    return static_cast<int>(msg.wParam);
 }
 
-//
-//  FUNCTION: MyRegisterClass()
-//
-//  PURPOSE: Registers the window class.
-//
 ATOM MyRegisterClass(HINSTANCE hInstance)
 {
     WNDCLASSEXW wcex;
@@ -74,33 +72,24 @@ ATOM MyRegisterClass(HINSTANCE hInstance)
     wcex.hInstance = hInstance;
     wcex.hIcon = LoadIcon(hInstance, MAKEINTRESOURCE(IDI_MY001GDISQUARE));
     wcex.hCursor = LoadCursor(nullptr, IDC_ARROW);
-    // wcex.hbrBackground = (HBRUSH)(COLOR_WINDOW + 1);
     wcex.lpszMenuName = MAKEINTRESOURCEW(IDC_MY001GDISQUARE);
     wcex.lpszClassName = szWindowClass;
     wcex.hIconSm = LoadIcon(wcex.hInstance, MAKEINTRESOURCE(IDI_SMALL));
+    // wcex.hbrBackground = (HBRUSH)(COLOR_WINDOW + 1);
     wcex.hbrBackground = hAppBakgroundBrush;
 
     return RegisterClassExW(&wcex);
 }
 
-//
-//   FUNCTION: InitInstance(HINSTANCE, int)
-//
-//   PURPOSE: Saves instance handle and creates main window
-//
-//   COMMENTS:
-//
-//        In this function, we save the instance handle in a global variable and
-//        create and display the main program window.
-//
 BOOL InitInstance(HINSTANCE hInstance, int nCmdShow)
 {
     hInst = hInstance; // Store instance handle in our global variable
 
     HWND hWnd = CreateWindowW(szWindowClass, szTitle, WS_OVERLAPPEDWINDOW,
-        CW_USEDEFAULT, 0, 1000, 1000, nullptr, nullptr, hInstance, nullptr);
+                              CW_USEDEFAULT, 0, 1000, 1000, nullptr, nullptr, hInstance, nullptr);
 
-    if (!hWnd) {
+    if (!hWnd)
+    {
         return FALSE;
     }
 
@@ -110,88 +99,129 @@ BOOL InitInstance(HINSTANCE hInstance, int nCmdShow)
     return TRUE;
 }
 
-//
-//  FUNCTION: WndProc(HWND, UINT, WPARAM, LPARAM)
-//
-//  PURPOSE: Processes messages for the main window.
-//
-//  WM_COMMAND  - process the application menu
-//  WM_PAINT    - Paint the main window
-//  WM_DESTROY  - post a quit message and return
-//
-//
+void invalidateDrawArea(const HWND hWnd)
+{
+    RECT rect;
+    GetClientRect(hWnd, &rect);
+
+    rect.top = 40;
+
+    InvalidateRect(hWnd, &rect, TRUE);
+}
+
 LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 {
     static int sx, sy;
     static auto sizeFactor = 1.;
     static auto isAutoResizing = FALSE;
-    static auto autoReizingDirection = +1;
+    static auto autoResizingDirection = +1;
 
-    switch (message) {
-    case WM_CREATE: {
-        auto hwndButton = CreateWindowEx(
+    switch (message)
+    {
+    case WM_CREATE:
+    {
+        CreateWindowEx(
             0,
             L"BUTTON",
             L"Start",
             WS_TABSTOP | WS_VISIBLE | WS_CHILD | BS_DEFPUSHBUTTON | BS_FLAT,
-            10, 10, 150, 30, // Позиция и размер кнопки
+            10, 10, 150, 30,
             hWnd,
-            (HMENU)IDC_TOGGLE_BUTTON, // Идентификатор кнопки
+            (HMENU)IDC_TOGGLE_BUTTON,
             (HINSTANCE)GetWindowLongPtr(hWnd, GWLP_HINSTANCE),
-            NULL);
-    } break;
-    case WM_COMMAND: {
-        int wmId = LOWORD(wParam);
+            nullptr);
+    }
+    break;
+    case WM_COMMAND:
+    {
+        const int wmId = LOWORD(wParam);
         // Parse the menu selections:
-        switch (wmId) {
-        case IDM_ABOUT: {
+        switch (wmId)
+        {
+        case IDM_ABOUT:
+        {
             DialogBox(hInst, MAKEINTRESOURCE(IDD_ABOUTBOX), hWnd, About);
-        } break;
-        case IDM_EXIT: {
+        }
+        break;
+        case IDM_EXIT:
+        {
             DestroyWindow(hWnd);
-        } break;
-        case IDC_TOGGLE_BUTTON: {
-            auto newLabel = L"";
+        }
+        break;
+        case IDC_TOGGLE_BUTTON:
+        {
+            const wchar_t *newLabel;
             KillTimer(hWnd, IDT_AUTO_RESIZE_TIMER);
-            if (isAutoResizing) {
+            if (isAutoResizing)
+            {
                 newLabel = L"Start";
                 isAutoResizing = FALSE;
-            } else {
+            }
+            else
+            {
                 newLabel = L"Stop";
-                SetTimer(hWnd, IDT_AUTO_RESIZE_TIMER, 300, NULL);
+                SetTimer(hWnd, IDT_AUTO_RESIZE_TIMER, 100, nullptr);
                 isAutoResizing = TRUE;
             }
             SetWindowTextW(GetDlgItem(hWnd, IDC_TOGGLE_BUTTON), newLabel);
-
-        } break;
+        }
+        break;
         default:
             return DefWindowProc(hWnd, message, wParam, lParam);
         }
-    } break;
-    case WM_LBUTTONDOWN: {
-        sizeFactor = min(sizeFactor + .1, 2.);
-        InvalidateRect(hWnd, NULL, TRUE);
-    } break;
-    case WM_RBUTTONDOWN: {
-        sizeFactor = max(sizeFactor - .1, .1);
-        InvalidateRect(hWnd, NULL, TRUE);
-    } break;
-    case WM_SIZE: {
+    }
+    break;
+    case WM_LBUTTONDOWN:
+    {
+        if (isAutoResizing)
+        {
+            autoResizingDirection *= -1;
+        }
+        else
+        {
+            sizeFactor = min(sizeFactor + .1, 2.);
+            invalidateDrawArea(hWnd);
+        }
+    }
+    break;
+    case WM_RBUTTONDOWN:
+    {
+        if (isAutoResizing)
+        {
+            autoResizingDirection *= -1;
+        }
+        else
+        {
+            sizeFactor = max(sizeFactor - .1, .1);
+            invalidateDrawArea(hWnd);
+        }
+    }
+    break;
+    case WM_SIZE:
+    {
         sx = LOWORD(lParam);
         sy = HIWORD(lParam);
-    } break;
-    case WM_TIMER: {
-        if (autoReizingDirection == 1) {
+    }
+    break;
+    case WM_TIMER:
+    {
+        if (autoResizingDirection == 1)
+        {
             sizeFactor = min(sizeFactor + .1, 2.);
-        } else if (autoReizingDirection == -1) {
+        }
+        else if (autoResizingDirection == -1)
+        {
             sizeFactor = max(sizeFactor - .1, .1);
         }
-        if (sizeFactor == 2. || sizeFactor == .1) {
-            autoReizingDirection *= -1;
+        if (sizeFactor == 2. || sizeFactor == .1)
+        {
+            autoResizingDirection *= -1;
         }
-        InvalidateRect(hWnd, NULL, TRUE);
-    } break;
-    case WM_PAINT: {
+        invalidateDrawArea(hWnd);
+    }
+    break;
+    case WM_PAINT:
+    {
         PAINTSTRUCT ps;
         HDC hdc = BeginPaint(hWnd, &ps);
 
@@ -209,33 +239,38 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
         SelectObject(hdc, hOldPen);
 
         EndPaint(hWnd, &ps);
-    } break;
-    case WM_DESTROY: {
+    }
+    break;
+    case WM_DESTROY:
+    {
         DeleteObject(hAppBakgroundBrush);
         DeleteObject(hSquareFillBrush);
         DeleteObject(hSquareBorderPen);
         PostQuitMessage(0);
-    } break;
+    }
+    break;
     default:
         return DefWindowProc(hWnd, message, wParam, lParam);
     }
     return 0;
 }
 
-// Message handler for about box.
 INT_PTR CALLBACK About(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
 {
     UNREFERENCED_PARAMETER(lParam);
-    switch (message) {
+    switch (message)
+    {
     case WM_INITDIALOG:
-        return (INT_PTR)TRUE;
+        return TRUE;
 
     case WM_COMMAND:
-        if (LOWORD(wParam) == IDOK || LOWORD(wParam) == IDCANCEL) {
+        if (LOWORD(wParam) == IDOK || LOWORD(wParam) == IDCANCEL)
+        {
             EndDialog(hDlg, LOWORD(wParam));
-            return (INT_PTR)TRUE;
+            return TRUE;
         }
         break;
+    default:
+        return FALSE;
     }
-    return (INT_PTR)FALSE;
 }
