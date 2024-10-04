@@ -1,6 +1,9 @@
 #include <windows.h>
 #include <tchar.h>
 #include <vector>
+#include <random>
+
+#define M_PI       3.14159265358979323846   // pi
 
 class Ball {
 
@@ -8,11 +11,21 @@ public:
   double Radius{0};
   double X{0};
   double Y{0};
+  double Angle{0};
+  double Speed{0};
 
   Ball(const double radius, const double x, const double y)
     : Radius{radius},
       X{x},
       Y{y} {
+
+    static std::mt19937 gen(std::random_device{}());
+
+    std::uniform_real_distribution<double> distAngle(0.0, M_PI * 2.);
+    std::uniform_real_distribution<double> distSpeed(50.0, 100.0);
+
+    Angle = distAngle(gen);
+    Speed = distSpeed(gen);
   }
 
   void Draw(const HDC hdc) const {
@@ -31,7 +44,8 @@ class BallsCollection {
 public:
   void update(const double deltaTime, int arenaWidth, int arenaHeight) {
     for (auto& ball : Items) {
-      ball.X += deltaTime * 10;
+      ball.X += deltaTime * ball.Speed * cos(ball.Angle);
+      ball.Y += deltaTime * ball.Speed * sin(ball.Angle);
     }
   }
 
