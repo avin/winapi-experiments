@@ -1,38 +1,14 @@
-ColumnLimit: 100
-ContinuationIndentWidth: 2
+BasedOnStyle: LLVM
+ColumnLimit: 120
 IndentWidth: 2
-TabWidth: 2
-ConstructorInitializerIndentWidth: 2
-IndentCaseLabels: true
-PenaltyReturnTypeOnItsOwnLine: 200
-UseTab: Never
-SortIncludes: true
-SortUsingDeclarations: false
-AlignConsecutiveMacros: false
-AlignEscapedNewlines: DontAlign
-AlignAfterOpenBracket: BlockIndent
-AlignOperands: false
-AlignTrailingComments: false
-BinPackArguments: false
+AlignAfterOpenBracket: Align
 BinPackParameters: false
-SpacesInContainerLiterals: false
-Cpp11BracedListStyle: true
-AllowShortFunctionsOnASingleLine: Empty
-AllowShortIfStatementsOnASingleLine: Always
-FixNamespaceComments: false
-ReflowComments: false
-NamespaceIndentation: All
-IncludeBlocks: Merge
-BreakStringLiterals: false
-BreakConstructorInitializers: AfterColon
-IndentPPDirectives: BeforeHash
-IncludeCategories:
-  - Regex: '"[[:alnum:]._-]+"'
-    Priority: 1
-    SortPriority: 1
-  - Regex: '^((<|").*/)'
-    Priority: 2
-    SortPriority: 2
-  - Regex: "<[[:alnum:]._-]+>"
-    Priority: 3
-    SortPriority: 3
+BinPackArguments: false
+ConstructorInitializerAllOnOneLineOrOnePerLine: true
+---
+Language: Cpp
+IndentWidth: 2
+ForEachMacros: ['foreach']
+# Force pointers to the type for C++.
+DerivePointerAlignment: false
+PointerAlignment: Left
