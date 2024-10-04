@@ -41,7 +41,7 @@ int APIENTRY wWinMain(
     return FALSE;
   }
 
-  HACCEL hAccelTable = LoadAccelerators(hInstance, MAKEINTRESOURCE(IDC_MY001GDISQUARE));
+  const HACCEL hAccelTable = LoadAccelerators(hInstance, MAKEINTRESOURCE(IDC_MY001GDISQUARE));
 
   MSG msg;
 
@@ -80,7 +80,7 @@ ATOM MyRegisterClass(const HINSTANCE hInstance) {
 BOOL InitInstance(const HINSTANCE hInstance, const int nCmdShow) {
   hInst = hInstance; // Store instance handle in our global variable
 
-  HWND hWnd = CreateWindowW(
+  const HWND hWnd = CreateWindowW(
       szWindowClass,
       szTitle,
       WS_OVERLAPPEDWINDOW,
