@@ -1,10 +1,64 @@
+#include "StopwatchControl.h"
+
 #include <windows.h>
 #include <tchar.h>
 
 LRESULT CALLBACK WndProc(const HWND hWnd, const UINT message, const WPARAM wParam, const LPARAM lParam) {
+
+  static HWND hWndStopwatch;
+
   switch (message) {
   case WM_CREATE: {
-    //
+    hWndStopwatch = CreateWindow(
+        _T("StopwatchControl"),
+        nullptr,
+        WS_VISIBLE | WS_CHILD,
+        50,
+        50,
+        200,
+        200,
+        hWnd,
+        nullptr,
+        ((LPCREATESTRUCT)lParam)->hInstance,
+        nullptr);
+
+    // Buttons for timer control
+    CreateWindow(_T("BUTTON"), _T("Start"), WS_VISIBLE | WS_CHILD, 50, 300, 100, 30, hWnd, (HMENU)1, NULL, NULL);
+    CreateWindow(_T("BUTTON"), _T("Stop"), WS_VISIBLE | WS_CHILD, 160, 300, 100, 30, hWnd, (HMENU)2, NULL, NULL);
+    CreateWindow(_T("BUTTON"), _T("Reset"), WS_VISIBLE | WS_CHILD, 270, 300, 100, 30, hWnd, (HMENU)3, NULL, NULL);
+    CreateWindow(_T("BUTTON"), _T("Show Status"), WS_VISIBLE | WS_CHILD, 50, 350, 100, 30, hWnd, (HMENU)4, NULL, NULL);
+    CreateWindow(_T("BUTTON"), _T("Show Time"), WS_VISIBLE | WS_CHILD, 160, 350, 100, 30, hWnd, (HMENU)5, NULL, NULL);
+    break;
+  }
+
+  case WM_COMMAND: {
+    switch (LOWORD(wParam)) {
+    case 1: {
+      SendMessage(hWndStopwatch, WM_COMMAND, WM_COMMAND_TIMER_START, lParam);
+
+      break;
+    }
+    case 2: {
+      SendMessage(hWndStopwatch, WM_COMMAND, WM_COMMAND_TIMER_STOP, lParam);
+      break;
+    }
+    case 3: {
+      SendMessage(hWndStopwatch, WM_COMMAND, WM_COMMAND_TIMER_RESET, lParam);
+      break;
+    }
+    case 4: {
+      LRESULT isRunning = SendMessage(hWndStopwatch, WM_GET_TIMER_STATUS, 0, 0);
+      MessageBox(hWnd, isRunning ? _T("Timer is running") : _T("Timer is stopped"), _T("Status"), MB_OK);
+      break;
+    }
+    case 5: {
+      LRESULT timeInSeconds = SendMessage(hWndStopwatch, WM_GET_TIMER_TIME, 0, 0);
+      wchar_t buffer[50];
+      wsprintf(buffer, _T("Elapsed Time: %lld seconds"), timeInSeconds);
+      MessageBox(hWnd, buffer, _T("Time"), MB_OK);
+      break;
+    }
+    }
     break;
   }
 
@@ -46,14 +100,16 @@ int APIENTRY WinMain(
 
   RegisterClassExW(&wcex);
 
+  RegisterStopwatchControl(hInstance);
+
   const HWND hWnd = CreateWindowW(
       className,
       L"Stopwatch",
-      WS_OVERLAPPEDWINDOW,
+      WS_OVERLAPPED | WS_CAPTION | WS_SYSMENU | WS_MINIMIZEBOX,
       CW_USEDEFAULT,
       0,
-      800,
-      800,
+      500,
+      500,
       nullptr,
       nullptr,
       hInstance,

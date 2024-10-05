@@ -11,12 +11,12 @@ Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "003-gdi-chess-board", "003-
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "004-gdi-rectangle-rush", "004-gdi-rectangle-rush\004-gdi-rectangle-rush.vcxproj", "{14AD85C3-E955-4082-9C19-FB72C76C05DF}"
 EndProject
-Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "005-gdi-stopwatch", "003-gdi-stopwatch\003-gdi-stopwatch.vcxproj", "{285FCB83-DC00-4A6E-8C78-D56D9CFFC2B7}"
-EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution Items", "{DB4FE211-54DC-498F-9722-F06B84ED577A}"
 	ProjectSection(SolutionItems) = preProject
 		README.md = README.md
 	EndProjectSection
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "005-gdi-stopwatch", "005-gdi-stopwatch\003-gdi-stopwatch.vcxproj", "{285FCB83-DC00-4A6E-8C78-D56D9CFFC2B7}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
