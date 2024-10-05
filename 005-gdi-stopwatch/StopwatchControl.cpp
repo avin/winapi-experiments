@@ -128,10 +128,12 @@ LRESULT CALLBACK StopwatchWndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lPa
   case WM_COMMAND: {
     switch (LOWORD(wParam)) {
     case WM_COMMAND_TIMER_START:
+      running = true;
       lastTime = clock::now();
       SetTimer(hWnd, 1, 1000 / 60, NULL);
       break;
     case WM_COMMAND_TIMER_STOP:
+      running = false;
       KillTimer(hWnd, 1);
       break;
     case WM_COMMAND_TIMER_RESET:

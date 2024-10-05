@@ -50,7 +50,7 @@ LRESULT CALLBACK WndProc(const HWND hWnd, const UINT message, const WPARAM wPara
     }
     case 4: {
       LRESULT isRunning = SendMessage(hWndStopwatch, WM_GET_TIMER_STATUS, 0, 0);
-      MessageBox(hWnd, isRunning ? _T("Timer is running") : _T("Timer is stopped"), _T("Status"), MB_OK);
+      MessageBox(hWnd, isRunning ? L"Timer is running" : L"Timer is stopped", L"Status", MB_OK);
       break;
     }
     case 5: {
