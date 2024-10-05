@@ -147,8 +147,7 @@ LRESULT CALLBACK StopwatchWndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lPa
     return running;
   }
   case WM_GET_TIMER_TIME: {
-    double seconds = resultTime;  // Здесь у тебя уже есть значение типа double
-    return *reinterpret_cast<LRESULT*>(&seconds);  // Преобразуем double в LRESULT
+    return (LRESULT)(resultTime * 1000);
   }
 
   case WM_DESTROY: {

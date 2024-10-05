@@ -54,9 +54,8 @@ LRESULT CALLBACK WndProc(const HWND hWnd, const UINT message, const WPARAM wPara
       break;
     }
     case 5: {
-      // LRESULT timeInSeconds = SendMessage(hWndStopwatch, WM_GET_TIMER_TIME, 0, 0);
-      LRESULT timeInSecondsLRESULT = SendMessage(hWndStopwatch, WM_GET_TIMER_TIME, 0, 0);
-      double timeInSeconds = *reinterpret_cast<double*>(&timeInSecondsLRESULT);
+      LRESULT timeInMilliSeconds = SendMessage(hWndStopwatch, WM_GET_TIMER_TIME, 0, 0);
+      double timeInSeconds = static_cast<double>(timeInMilliSeconds) / 1000.;
 
       std::wstringstream wss;
       wss << L"Elapsed Time: " << timeInSeconds << L" seconds";
