@@ -7,7 +7,7 @@
 HHOOK hHook;
 HWND hWndParent;
 
-void DebugOutput(const wchar_t* format, ...) {
+void DebugOutputImpl(const wchar_t* format, ...) {
   wchar_t msg[255] = {0};
 
   va_list args;
@@ -17,6 +17,14 @@ void DebugOutput(const wchar_t* format, ...) {
 
   OutputDebugStringW(msg);
 }
+
+#ifdef _DEBUG
+#define DebugOutput(format, ...) \
+        DebugOutputImpl(format, __VA_ARGS__)
+#else
+    #define DebugOutput(format, ...) \
+        do {} while (0)  // Пустой макрос, который не делает ничего
+#endif
 
 void DrawCenteredText(HDC hdc, const wchar_t* text, int centerX, int centerY) {
   // Структура для хранения размеров текста
@@ -132,7 +140,7 @@ LRESULT CALLBACK WndProc(const HWND hWnd, const UINT message, const WPARAM wPara
       InvalidateRect(hWnd, NULL, TRUE);
     }
 
-    DebugOutput(L"x: %d; y: %d\n", activeCell, activeCell);
+    DebugOutput(L"activeCell: %d;\n", activeCell);
 
     break;
   }
