@@ -1,5 +1,7 @@
 #include "StopwatchControl.h"
 
+#include <sstream>
+#include <string>
 #include <windows.h>
 #include <tchar.h>
 
@@ -13,21 +15,21 @@ LRESULT CALLBACK WndProc(const HWND hWnd, const UINT message, const WPARAM wPara
         _T("StopwatchControl"),
         nullptr,
         WS_VISIBLE | WS_CHILD,
-        50,
-        50,
-        200,
-        200,
+        30,
+        20,
+        300,
+        300,
         hWnd,
         nullptr,
         ((LPCREATESTRUCT)lParam)->hInstance,
         nullptr);
 
     // Buttons for timer control
-    CreateWindow(_T("BUTTON"), _T("Start"), WS_VISIBLE | WS_CHILD, 50, 300, 100, 30, hWnd, (HMENU)1, NULL, NULL);
-    CreateWindow(_T("BUTTON"), _T("Stop"), WS_VISIBLE | WS_CHILD, 160, 300, 100, 30, hWnd, (HMENU)2, NULL, NULL);
-    CreateWindow(_T("BUTTON"), _T("Reset"), WS_VISIBLE | WS_CHILD, 270, 300, 100, 30, hWnd, (HMENU)3, NULL, NULL);
-    CreateWindow(_T("BUTTON"), _T("Show Status"), WS_VISIBLE | WS_CHILD, 50, 350, 100, 30, hWnd, (HMENU)4, NULL, NULL);
-    CreateWindow(_T("BUTTON"), _T("Show Time"), WS_VISIBLE | WS_CHILD, 160, 350, 100, 30, hWnd, (HMENU)5, NULL, NULL);
+    CreateWindow(_T("BUTTON"), _T("Start"), WS_VISIBLE | WS_CHILD, 20, 340, 100, 30, hWnd, (HMENU)1, NULL, NULL);
+    CreateWindow(_T("BUTTON"), _T("Stop"), WS_VISIBLE | WS_CHILD, 130, 340, 100, 30, hWnd, (HMENU)2, NULL, NULL);
+    CreateWindow(_T("BUTTON"), _T("Reset"), WS_VISIBLE | WS_CHILD, 240, 340, 100, 30, hWnd, (HMENU)3, NULL, NULL);
+    CreateWindow(_T("BUTTON"), _T("Show Status"), WS_VISIBLE | WS_CHILD, 20, 380, 100, 30, hWnd, (HMENU)4, NULL, NULL);
+    CreateWindow(_T("BUTTON"), _T("Show Time"), WS_VISIBLE | WS_CHILD, 130, 380, 100, 30, hWnd, (HMENU)5, NULL, NULL);
     break;
   }
 
@@ -52,10 +54,13 @@ LRESULT CALLBACK WndProc(const HWND hWnd, const UINT message, const WPARAM wPara
       break;
     }
     case 5: {
-      LRESULT timeInSeconds = SendMessage(hWndStopwatch, WM_GET_TIMER_TIME, 0, 0);
-      wchar_t buffer[50];
-      wsprintf(buffer, _T("Elapsed Time: %lld seconds"), timeInSeconds);
-      MessageBox(hWnd, buffer, _T("Time"), MB_OK);
+      // LRESULT timeInSeconds = SendMessage(hWndStopwatch, WM_GET_TIMER_TIME, 0, 0);
+      LRESULT timeInSecondsLRESULT = SendMessage(hWndStopwatch, WM_GET_TIMER_TIME, 0, 0);
+      double timeInSeconds = *reinterpret_cast<double*>(&timeInSecondsLRESULT);
+
+      std::wstringstream wss;
+      wss << L"Elapsed Time: " << timeInSeconds << L" seconds";
+      MessageBox(hWnd, wss.str().c_str(), L"Time", MB_OK);
       break;
     }
     }
@@ -108,8 +113,8 @@ int APIENTRY WinMain(
       WS_OVERLAPPED | WS_CAPTION | WS_SYSMENU | WS_MINIMIZEBOX,
       CW_USEDEFAULT,
       0,
-      500,
-      500,
+      380,
+      470,
       nullptr,
       nullptr,
       hInstance,

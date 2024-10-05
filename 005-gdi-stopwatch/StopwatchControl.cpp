@@ -84,20 +84,36 @@ LRESULT CALLBACK StopwatchWndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lPa
     {
       auto angle = M_PI * 2 * (resultTime / 60.) - M_PI / 2.;
 
-      auto fromX = mid + clockRadius / 6 * cos(angle - M_PI);
-      auto fromY = mid + clockRadius / 6 * sin(angle - M_PI);
+      // Смещение основания стрелки относительно центра
+      int baseOffset = clockRadius / 6;
 
-      auto toX = mid + clockRadius * cos(angle);
-      auto toY = mid + clockRadius * sin(angle);
+      // Длина основания (ширина стрелки)
+      int baseWidth = clockRadius / 22;
+
+      POINT points[] = {
+          // Наконечник стрелки (верхняя точка)
+          {(int)(mid + clockRadius * cos(angle)),
+           (int)(mid + clockRadius * sin(angle))},
+
+          // Левая точка основания (сдвинута влево и вниз относительно направления стрелки)
+          {(int)(mid - baseOffset * cos(angle) - baseWidth * sin(angle)),
+           (int)(mid - baseOffset * sin(angle) + baseWidth * cos(angle))},
+
+          // Правая точка основания (сдвинута вправо и вниз относительно направления стрелки)
+          {(int)(mid - baseOffset * cos(angle) + baseWidth * sin(angle)),
+           (int)(mid - baseOffset * sin(angle) - baseWidth * cos(angle))},
+
+      };
 
       auto hOldPen = SelectObject(hdc, hArrowPen);
-      MoveToEx(hdc, fromX, fromY, NULL);
-      LineTo(hdc, toX, toY);
+      Polygon(hdc, points, sizeof(points) / sizeof(points[0]));
       SelectObject(hdc, hOldPen);
     }
 
-    auto boltRadius = clockRadius/10;
-    Ellipse(hdc, mid - boltRadius, mid - boltRadius, mid + boltRadius, mid + boltRadius);
+    {
+      auto boltRadius = clockRadius / 12;
+      Ellipse(hdc, mid - boltRadius, mid - boltRadius, mid + boltRadius, mid + boltRadius);
+    }
 
     BitBlt(hdcOrig, 0, 0, rect.right, rect.bottom, hdc, 0, 0, SRCCOPY); // NOLINT(readability-suspicious-call-argument)
 
@@ -131,11 +147,8 @@ LRESULT CALLBACK StopwatchWndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lPa
     return running;
   }
   case WM_GET_TIMER_TIME: {
-    // double seconds = elapsedTime.count();
-    // if (running) {
-    //   seconds += std::chrono::duration<double>(std::chrono::steady_clock::now() - startTime).count();
-    // }
-    // return static_cast<LRESULT>(seconds); // Возвращаем количество секунд
+    double seconds = resultTime;  // Здесь у тебя уже есть значение типа double
+    return *reinterpret_cast<LRESULT*>(&seconds);  // Преобразуем double в LRESULT
   }
 
   case WM_DESTROY: {
