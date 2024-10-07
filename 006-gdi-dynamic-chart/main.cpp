@@ -10,10 +10,10 @@ LRESULT CALLBACK WndProc(const HWND hWnd, const UINT message, const WPARAM wPara
   switch (message) {
   case WM_CREATE: {
     hWndChart = CreateWindow(
-        _T("ChartControl"),
+        L"ChartControl",
         nullptr,
         WS_VISIBLE | WS_CHILD,
-        30,
+        20,
         20,
         300,
         300,
@@ -21,6 +21,14 @@ LRESULT CALLBACK WndProc(const HWND hWnd, const UINT message, const WPARAM wPara
         nullptr,
         ((LPCREATESTRUCT)lParam)->hInstance,
         nullptr);
+    break;
+  }
+
+  case WM_SIZE: {
+    auto w = LOWORD(lParam);
+    auto h = HIWORD(lParam);
+    
+    SetWindowPos(hWndChart, NULL, 0, 0, w, h, NULL);
     break;
   }
 
@@ -62,11 +70,11 @@ int APIENTRY WinMain(
   const HWND hWnd = CreateWindowW(
       className,
       L"Chart",
-      WS_OVERLAPPED | WS_CAPTION | WS_SYSMENU | WS_MINIMIZEBOX,
+      WS_OVERLAPPEDWINDOW,
       CW_USEDEFAULT,
       0,
       1000,
-      1000,
+      600,
       nullptr,
       nullptr,
       hInstance,
