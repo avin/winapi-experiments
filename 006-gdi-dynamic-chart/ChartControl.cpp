@@ -11,11 +11,6 @@ enum class LineType {
   Common, Solid, Root
 };
 
-
-bool areAlmostEqual(double a, double b, double epsilon = 1e-6) {
-  return std::fabs(a - b) < epsilon;
-}
-
 void DrawCenteredText(HDC hdc, const wchar_t* text, int centerX, int centerY) {
   SIZE textSize;
 
@@ -85,7 +80,7 @@ LRESULT CALLBACK ChartWndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
     return screenYToWorldY(0);
   };
 
-  auto drawChartLine = [](HDC hdc, HPEN hPen, std::function<double(double)> func) {
+  auto drawChartLine = [](HDC hdc, HPEN hPen, auto func) {
     auto hOldPen = SelectObject(hdc, hPen);
 
     auto isFirstPoint = true;
@@ -206,9 +201,6 @@ LRESULT CALLBACK ChartWndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
       double step = pow(10, std::floor(std::log10(diff / 20)));
 
       auto drawGridLines = [&](double minVal, double maxVal, bool isVertical) {
-        if (isVertical) {
-          DebugOutput(L"~~ %llf\n", step);
-        }
         while (static_cast<int>(step * zoom) <= 10) {
           step *= 5;
         }
