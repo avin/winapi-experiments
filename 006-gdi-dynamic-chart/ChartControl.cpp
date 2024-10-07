@@ -176,37 +176,64 @@ LRESULT CALLBACK ChartWndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
       MoveToEx(hdc, px(getMinX()), py(0), NULL);
       LineTo(hdc, px(getMaxX()), py(0));
 
-      auto diff = (getMaxY() - getMinY());
-      double step = pow(10, std::floor(std::log10(diff / 20)));
-      while(static_cast<int>(step * zoom) <= 10) {
-        step*=5;
-        
-      }
-      double bigStep = step * 5;
+      {
+        auto diff = (getMaxY() - getMinY());
+        double step = pow(10, std::floor(std::log10(diff / 20)));
+        while (static_cast<int>(step * zoom) <= 10) {
+          step *= 5;
 
-      auto q = std::floor(getMinY() / step) * step;
-
-      for (auto i = q; i < getMaxY(); i += step) {
-        auto w = 10;
-
-        
-        auto z = std::abs(static_cast<int>(i / bigStep * 1000.) % 1000);
-        
-        if (z >= 999 || z <= 1) {
-
-          w = 20;
-
-          std::wstringstream ws{};
-          ws << i;
-
-          DrawCenteredText(
-              hdc,
-              ws.str().c_str(),
-              px(-40. / zoom),
-              py(i));
         }
-        MoveToEx(hdc, px(-w / zoom), py(i), NULL);
-        LineTo(hdc, px(+w / zoom), py(i));
+        double bigStep = step * 5;
+        auto q = std::floor(getMinY() / step) * step;
+
+        for (auto i = q; i < getMaxY(); i += step) {
+          auto w = 5;
+          auto z = std::abs(static_cast<int>(i / bigStep * 1000.) % 1000);
+
+          if (z >= 999 || z <= 1 && (py(i) != py(0))) {
+            w = 15;
+            std::wstringstream ws{};
+            ws << i;
+            DrawCenteredText(
+                hdc,
+                ws.str().c_str(),
+                px(-40. / zoom),
+                py(i));
+          }
+          MoveToEx(hdc, px(-w / zoom), py(i), NULL);
+          LineTo(hdc, px(+w / zoom), py(i));
+        }
+      }
+
+      // --------
+
+      {
+        auto diff = (getMaxX() - getMinX());
+        double step = pow(10, std::floor(std::log10(diff / 20)));
+        while (static_cast<int>(step * zoom) <= 10) {
+          step *= 5;
+
+        }
+        double bigStep = step * 5;
+        auto q = std::floor(getMinX() / step) * step;
+
+        for (auto i = q; i < getMaxX(); i += step) {
+          auto w = 5;
+          auto z = std::abs(static_cast<int>(i / bigStep * 1000.) % 1000);
+
+          if (z >= 999 || z <= 1 && (px(i) != px(0))) {
+            w = 15;
+            std::wstringstream ws{};
+            ws << i;
+            DrawCenteredText(
+                hdc,
+                ws.str().c_str(),
+                px(i),
+                py(-40. / zoom));
+          }
+          MoveToEx(hdc, px(i), py(-w / zoom), NULL);
+          LineTo(hdc, px(i), py(+w / zoom));
+        }
       }
     }
 
