@@ -64,18 +64,25 @@ LRESULT CALLBACK ChartWndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
     return sy - (sy / 2 + static_cast<int>(y * zoom)) + offsetPoint.y;
   };
 
+  static auto screenXToWorldX = [](int x) {
+    return (static_cast<double>(x) - static_cast<double>(sx) / 2 - offsetPoint.x) / zoom;
+  };
+  static auto screenYToWorldY = [](int y) {
+    return (sy - y - static_cast<double>(sy) / 2 + offsetPoint.y) / zoom;
+  };
+
   static auto getMinX = []() -> double {
-    return (0 - sx / 2 - offsetPoint.x) / zoom;
+    return screenXToWorldX(0);
   };
   static auto getMaxX = []() -> double {
-    return (sx - sx / 2 - offsetPoint.x) / zoom;
+    return screenXToWorldX(sx);
   };
 
   static auto getMinY = []() -> double {
-    return (sy - sy - sy / 2 + offsetPoint.y) / zoom;
+    return screenYToWorldY(sy);
   };
   static auto getMaxY = []() -> double {
-    return (sy - 0 - sy / 2 + offsetPoint.y) / zoom;
+    return screenYToWorldY(0);
   };
 
   auto drawChartLine = [](HDC hdc, HPEN hPen, std::function<double(double)> func) {
@@ -104,7 +111,7 @@ LRESULT CALLBACK ChartWndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
 
   switch (msg) {
   case WM_CREATE: {
-    // 
+    //
     break;
   }
   case WM_LBUTTONDOWN: {
@@ -145,11 +152,30 @@ LRESULT CALLBACK ChartWndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
   }
   case WM_MOUSEWHEEL: {
     int delta = GET_WHEEL_DELTA_WPARAM(wParam);
+    // Текущая позиция курсора в клиентских координатах
+    POINT cursorPos;
+    GetCursorPos(&cursorPos);
+    ScreenToClient(hWnd, &cursorPos);
+
+    // Преобразуем координаты курсора в мировые координаты
+    double worldX = screenXToWorldX(cursorPos.x);
+    double worldY = screenYToWorldY(cursorPos.y);
+
+    // Сохраняем текущее значение зума для корректировки offsetPoint
+    auto prevZoom = zoom;
+
+    // Изменение масштаба
     if (delta > 0) {
       zoom *= 1.1;
     } else if (delta < 0) {
       zoom /= 1.1;
     }
+
+    // Корректируем offsetPoint так, чтобы зумирование было относительно курсора
+    offsetPoint.x += static_cast<int>((prevZoom - zoom) * worldX);
+    offsetPoint.y -= static_cast<int>((prevZoom - zoom) * worldY);
+
+    // Перерисовываем окно
     InvalidateRect(hWnd, NULL, TRUE);
     break;
   }
@@ -176,6 +202,7 @@ LRESULT CALLBACK ChartWndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
       MoveToEx(hdc, px(getMinX()), py(0), NULL);
       LineTo(hdc, px(getMaxX()), py(0));
 
+      // Градация Y оси
       {
         auto diff = (getMaxY() - getMinY());
         double step = pow(10, std::floor(std::log10(diff / 20)));
@@ -205,7 +232,7 @@ LRESULT CALLBACK ChartWndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
         }
       }
 
-      // --------
+      // Градация X оси
 
       {
         auto diff = (getMaxX() - getMinX());

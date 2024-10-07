@@ -27,7 +27,7 @@ LRESULT CALLBACK WndProc(const HWND hWnd, const UINT message, const WPARAM wPara
   case WM_SIZE: {
     auto w = LOWORD(lParam);
     auto h = HIWORD(lParam);
-    
+
     SetWindowPos(hWndChart, NULL, 0, 0, w, h, NULL);
     break;
   }
