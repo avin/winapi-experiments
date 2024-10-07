@@ -1,5 +1,7 @@
 #include "ChartControl.h"
 
+#include "Debug.h"
+
 #include <cmath>
 #include <functional>
 #include <sstream>
@@ -9,41 +11,31 @@ enum class LineType {
   Common, Solid, Root
 };
 
-void DebugOutputImpl(const wchar_t* format, ...) {
-  wchar_t msg[255] = {0};
-
-  va_list args;
-  va_start(args, format);
-  vswprintf(msg, sizeof(msg) / sizeof(wchar_t), format, args);
-  va_end(args);
-
-  OutputDebugStringW(msg);
-}
-
-#ifdef _DEBUG
-#define DebugOutput(format, ...) \
-        DebugOutputImpl(format, __VA_ARGS__)
-#else
-    #define DebugOutput(format, ...) \
-        do {} while (0)  // Пустой макрос, который не делает ничего
-#endif
 
 bool areAlmostEqual(double a, double b, double epsilon = 1e-6) {
   return std::fabs(a - b) < epsilon;
 }
 
 void DrawCenteredText(HDC hdc, const wchar_t* text, int centerX, int centerY) {
-  // Структура для хранения размеров текста
   SIZE textSize;
 
   // Получаем размеры текста для текущего шрифта и текста
   GetTextExtentPoint32(hdc, text, wcslen(text), &textSize);
 
-  // Вычисляем координаты верхнего левого угла для центрирования текста
   int textX = centerX - (textSize.cx / 2);
   int textY = centerY - (textSize.cy / 2);
 
-  // Рисуем текст в вычисленных координатах
+  TextOut(hdc, textX, textY, text, wcslen(text));
+}
+
+void DrawCenteredRightText(HDC hdc, const wchar_t* text, int centerX, int centerY) {
+  SIZE textSize;
+
+  GetTextExtentPoint32(hdc, text, wcslen(text), &textSize);
+
+  int textX = centerX - (textSize.cx);
+  int textY = centerY - (textSize.cy / 2);
+
   TextOut(hdc, textX, textY, text, wcslen(text));
 }
 
@@ -200,51 +192,30 @@ LRESULT CALLBACK ChartWndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
 
     FillRect(hdc, &rect, (HBRUSH)(COLOR_BTNFACE + 1));
 
-    // Рисуем оси координат
+    // Рисуем сетку
     {
-      // Градация Y оси
-      // {
-      //   auto diff = (getMaxY() - getMinY());
-      //   double step = pow(10, std::floor(std::log10(diff / 20)));
-      //   while (static_cast<int>(step * zoom) <= 10) {
-      //     step *= 5;
-      //
-      //   }
-      //   double bigStep = step * 5;
-      //   auto q = std::floor(getMinY() / step) * step;
-      //
-      //   for (auto i = q; i < getMaxY(); i += step) {
-      //     auto w = 5;
-      //     auto z = std::abs(static_cast<int>(i / bigStep * 1000.) % 1000);
-      //
-      //     if (z >= 999 || z <= 1 && (py(i) != py(0))) {
-      //       w = 15;
-      //       std::wstringstream ws{};
-      //       ws << i;
-      //       DrawCenteredText(
-      //           hdc,
-      //           ws.str().c_str(),
-      //           px(-40. / zoom),
-      //           py(i));
-      //     }
-      //     MoveToEx(hdc, 0, py(i), NULL);
-      //     LineTo(hdc, sx, py(i));
-      //   }
-      // }
 
-      // Градация X оси
+      auto minValX = getMinX();
+      auto maxValX = getMaxX();
+      auto minValY = getMinY();
+      auto maxValY = getMaxY();
 
-      auto drawGridLines = [&](double min, double max, bool isVertical) {
-        auto diff = (max - min);
-        double step = pow(10, std::floor(std::log10(diff / 20)));
+      auto diffX = (maxValX - minValX);
+      auto diffY = (maxValY - minValY);
+      auto diff = max(diffX, diffY);
+      double step = pow(10, std::floor(std::log10(diff / 20)));
+
+      auto drawGridLines = [&](double minVal, double maxVal, bool isVertical) {
+        if (isVertical) {
+          DebugOutput(L"~~ %llf\n", step);
+        }
         while (static_cast<int>(step * zoom) <= 10) {
           step *= 5;
-
         }
         double bigStep = step * 5;
-        auto q = std::floor(min / step) * step;
+        auto q = std::floor(minVal / step) * step;
 
-        for (auto i = q; i < max; i += step) {
+        for (auto i = q; i < maxVal; i += step) {
           auto lineType = LineType::Common;
           auto z = std::abs(static_cast<int>(i / bigStep * 1000.) % 1000);
 
@@ -280,67 +251,20 @@ LRESULT CALLBACK ChartWndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
                   hdc,
                   ws.str().c_str(),
                   px(i),
-                  py(-40. / zoom));
+                  py(-10. / zoom));
             } else {
-              DrawCenteredText(
+              DrawCenteredRightText(
                   hdc,
                   ws.str().c_str(),
-                  px(-40. / zoom),
+                  px(-2. / zoom),
                   py(i));
             }
-
           }
         }
       };
 
-      drawGridLines(getMinX(), getMaxX(), true);
-      drawGridLines(getMinY(), getMaxY(), false);
-
-      // {
-      //   auto diff = (getMaxX() - getMinX());
-      //   double step = pow(10, std::floor(std::log10(diff / 20)));
-      //   while (static_cast<int>(step * zoom) <= 10) {
-      //     step *= 5;
-      //
-      //   }
-      //   double bigStep = step * 5;
-      //   auto q = std::floor(getMinX() / step) * step;
-      //
-      //   for (auto i = q; i < getMaxX(); i += step) {
-      //     auto lineType = LineType::Common;
-      //     auto z = std::abs(static_cast<int>(i / bigStep * 1000.) % 1000);
-      //
-      //     if (z >= 999 || z <= 1) {
-      //
-      //       if (px(i) == px(0)) {
-      //         lineType = LineType::Root;
-      //       } else {
-      //         lineType = LineType::Solid;
-      //       }
-      //
-      //     }
-      //     auto hLinePen = hLinePenCommon;
-      //     if (lineType == LineType::Solid) {
-      //       hLinePen = hLinePenSignificant;
-      //     } else if (lineType == LineType::Root) {
-      //       hLinePen = hLinePenRoot;
-      //     }
-      //     auto hOldPen = SelectObject(hdc, hLinePen);
-      //     MoveToEx(hdc, px(i), 0, NULL);
-      //     LineTo(hdc, px(i), sy);
-      //     SelectObject(hdc, hOldPen);
-      //
-      //     if (lineType == LineType::Solid) {
-      //       std::wstringstream ws{};
-      //       ws << i;
-      //       DrawCenteredText(
-      //           hdc,
-      //           ws.str().c_str(),
-      //           px(i),
-      //           py(-40. / zoom));
-      //     }
-      //   }
-      // }
+      drawGridLines(minValX, maxValX, true);
+      drawGridLines(minValY, maxValY, false);
     }
 
     // Рисуем линии графика
