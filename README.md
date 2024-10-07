@@ -17,4 +17,4 @@
 
 
 ## [006-gdi-dynamic-chart](./006-gdi-dynamic-chart)
-`gdi`, `custom-control`, `chart-mouse-drag`
+`gdi`, `custom-control`, `chart-mouse-drag`, `double-buffer`, `debug`
