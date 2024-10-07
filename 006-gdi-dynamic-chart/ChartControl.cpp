@@ -34,62 +34,88 @@ void DrawCenteredRightText(HDC hdc, const wchar_t* text, int centerX, int center
   TextOut(hdc, textX, textY, text, wcslen(text));
 }
 
-LRESULT CALLBACK ChartWndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam) {
-  static int sx, sy;
-  static auto zoom = 100.0;
-  static POINT offsetPoint{0, 0};
-  static POINT beforeDragOffsetPoint{0, 0};
-  static POINT startDragPoint{0, 0};
-  static BOOL isDragging = FALSE;
+class ChartControl {
+  HPEN m_hLinePenRoot, m_hLinePenSignificant, m_hLinePenCommon, m_hDrawPenRed, m_hDrawPenGreen, m_hDrawPenBlue;
 
-  // Линии сетки
-  static HPEN hLinePenRoot = CreatePen(PS_SOLID, 2, RGB(50, 50, 50));
-  static HPEN hLinePenSignificant = CreatePen(PS_SOLID, 1, RGB(50, 50, 50));
-  static HPEN hLinePenCommon = CreatePen(PS_SOLID, 1, RGB(200, 200, 200));
+  int Px(double x) const {
+    return m_sx / 2 + static_cast<int>(x * m_zoom) + m_offsetPoint.x;
+  }
 
-  static HPEN hDrawPenRed = CreatePen(PS_SOLID, 2, RGB(255, 0, 0));
-  static HPEN hDrawPenGreen = CreatePen(PS_SOLID, 2, RGB(0, 200, 0));
-  static HPEN hDrawPenBlue = CreatePen(PS_SOLID, 2, RGB(0, 0, 255));
+  int Py(double y) const {
+    return m_sy - (m_sy / 2 + static_cast<int>(y * m_zoom)) + m_offsetPoint.y;
+  }
 
-  static auto px = [](double x) {
-    return sx / 2 + static_cast<int>(x * zoom) + offsetPoint.x;
-  };
+  double GetMinX() const {
+    return ScreenXToWorldX(0);
+  }
 
-  static auto py = [](double y) {
-    return sy - (sy / 2 + static_cast<int>(y * zoom)) + offsetPoint.y;
-  };
+  double GetMaxX() const {
+    return ScreenXToWorldX(m_sx);
+  }
 
-  static auto screenXToWorldX = [](int x) {
-    return (static_cast<double>(x) - static_cast<double>(sx) / 2 - offsetPoint.x) / zoom;
-  };
-  static auto screenYToWorldY = [](int y) {
-    return (sy - y - static_cast<double>(sy) / 2 + offsetPoint.y) / zoom;
-  };
+  double GetMinY() const {
+    return ScreenYToWorldY(m_sy);
+  }
 
-  static auto getMinX = []() -> double {
-    return screenXToWorldX(0);
-  };
-  static auto getMaxX = []() -> double {
-    return screenXToWorldX(sx);
-  };
+  double GetMaxY() const {
+    return ScreenYToWorldY(0);
+  }
 
-  static auto getMinY = []() -> double {
-    return screenYToWorldY(sy);
-  };
-  static auto getMaxY = []() -> double {
-    return screenYToWorldY(0);
-  };
+public:
+  int m_sx{0}, m_sy{0};
+  double m_zoom = 100.0;
+  POINT m_offsetPoint{0, 0};
 
-  auto drawChartLine = [](HDC hdc, HPEN hPen, auto func) {
-    auto hOldPen = SelectObject(hdc, hPen);
+  ChartControl() {
+    m_hLinePenRoot = CreatePen(PS_SOLID, 2, RGB(50, 50, 50));
+    m_hLinePenSignificant = CreatePen(PS_SOLID, 1, RGB(50, 50, 50));
+    m_hLinePenCommon = CreatePen(PS_SOLID, 1, RGB(200, 200, 200));
+
+    m_hDrawPenRed = CreatePen(PS_SOLID, 2, RGB(255, 0, 0));
+    m_hDrawPenGreen = CreatePen(PS_SOLID, 2, RGB(0, 200, 0));
+    m_hDrawPenBlue = CreatePen(PS_SOLID, 2, RGB(0, 0, 255));
+  }
+
+  ~ChartControl() {
+    DeleteObject(m_hLinePenRoot);
+    DeleteObject(m_hLinePenSignificant);
+    DeleteObject(m_hLinePenCommon);
+    DeleteObject(m_hDrawPenRed);
+    DeleteObject(m_hDrawPenGreen);
+    DeleteObject(m_hDrawPenBlue);
+  }
+
+  double ScreenXToWorldX(int x) const {
+    return (static_cast<double>(x) - static_cast<double>(m_sx) / 2 - m_offsetPoint.x) / m_zoom;
+  }
+
+  double ScreenYToWorldY(int y) const {
+    return (m_sy - y - static_cast<double>(m_sy) / 2 + m_offsetPoint.y) / m_zoom;
+  }
+
+  auto GetRedPen() const {
+    return m_hDrawPenRed;
+  }
+
+  auto GetBluePen() const {
+    return m_hDrawPenBlue;
+  }
+
+  auto GetGreenPen() const {
+    return m_hDrawPenGreen;
+  }
+
+  template <typename Func>
+  auto DrawChartLine(HDC hdc, HPEN hPen, Func func) const {
+    const auto hOldPen = SelectObject(hdc, hPen);
 
     auto isFirstPoint = true;
-    for (auto x = getMinX(); x < getMaxX(); x += (3. / zoom)) {
+    for (auto x = GetMinX(); x < GetMaxX(); x += (3. / m_zoom)) {
       auto y = func(x);
 
-      auto rx = px(x);
-      auto ry = py(y);
-      if (rx > 0 && rx < sx && ry > 0 && ry < sy) {
+      auto const rx = Px(x);
+      auto const ry = Py(y);
+      if (rx > 0 && rx < m_sx && ry > 0 && ry < m_sy) {
         if (isFirstPoint) {
           MoveToEx(hdc, rx, ry, NULL);
         } else {
@@ -102,73 +128,159 @@ LRESULT CALLBACK ChartWndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
     }
 
     SelectObject(hdc, hOldPen);
-  };
+  }
+
+  auto DrawGrid(HDC hdc) const {
+
+    const auto minValX = GetMinX();
+    const auto maxValX = GetMaxX();
+    const auto minValY = GetMinY();
+    const auto maxValY = GetMaxY();
+
+    const auto diffX = (maxValX - minValX);
+    const auto diffY = (maxValY - minValY);
+    const auto diff = max(diffX, diffY);
+    double step = pow(10, std::floor(std::log10(diff / 20)));
+
+    auto drawGridLines = [&](const double minVal, const double maxVal, const bool isVertical, const bool shouldDrawLines, const bool shouldDrawLabels) {
+      while (static_cast<int>(step * m_zoom) <= 10) {
+        step *= 5;
+      }
+      double bigStep = step * 5;
+      auto q = std::floor(minVal / step) * step;
+
+      for (auto i = q; i < maxVal; i += step) {
+        auto lineType = LineType::Common;
+        const auto z = std::abs(static_cast<int>(i / bigStep * 1000.) % 1000);
+
+        if (z >= 999 || z <= 1) {
+          if ((isVertical && Px(i) == Px(0)) || (!isVertical && Py(i) == Py(0))) {
+            lineType = LineType::Root;
+          } else {
+            lineType = LineType::Solid;
+          }
+        }
+        auto hLinePen = m_hLinePenCommon;
+        if (lineType == LineType::Solid) {
+          hLinePen = m_hLinePenSignificant;
+        } else if (lineType == LineType::Root) {
+          hLinePen = m_hLinePenRoot;
+        }
+
+        if(shouldDrawLines) {
+          const auto hOldPen = SelectObject(hdc, hLinePen);
+          if (isVertical) {
+            MoveToEx(hdc, Px(i), 0, NULL);
+            LineTo(hdc, Px(i), m_sy);
+          } else {
+            MoveToEx(hdc, 0, Py(i), NULL);
+            LineTo(hdc, m_sx, Py(i));
+          }
+          SelectObject(hdc, hOldPen);
+        }
+
+
+        if(shouldDrawLabels) {
+          if (lineType == LineType::Solid) {
+            std::wstringstream ws{};
+            ws << i;
+            if (isVertical) {
+              DrawCenteredText(
+                  hdc,
+                  ws.str().c_str(),
+                  Px(i),
+                  Py(-10. / m_zoom));
+            } else {
+              DrawCenteredRightText(
+                  hdc,
+                  ws.str().c_str(),
+                  Px(-2. / m_zoom),
+                  Py(i));
+            }
+          }
+        }
+
+      }
+    };
+
+    // Сетка
+    drawGridLines(minValX, maxValX, true, true, false);
+    drawGridLines(minValY, maxValY, false, true, false);
+
+    // Лейблы
+    drawGridLines(minValX, maxValX, true, false, true);
+    drawGridLines(minValY, maxValY, false, false, true);
+  }
+};
+
+LRESULT CALLBACK ChartWndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam) {
+
+  static POINT beforeDragOffsetPoint{0, 0};
+  static POINT startDragPoint{0, 0};
+  static BOOL isDragging = FALSE;
+
+  static ChartControl* pChartControl = nullptr;
 
   switch (msg) {
   case WM_CREATE: {
-    //
+    pChartControl = new ChartControl;
     break;
   }
   case WM_LBUTTONDOWN: {
-    int xPos = LOWORD(lParam);
-    int yPos = HIWORD(lParam);
+    SetCapture(hWnd);
+
+    auto const xPos = LOWORD(lParam);
+    auto const yPos = HIWORD(lParam);
 
     startDragPoint.x = xPos;
     startDragPoint.y = yPos;
-    beforeDragOffsetPoint = offsetPoint;
+    beforeDragOffsetPoint = pChartControl->m_offsetPoint;
     isDragging = TRUE;
 
     break;
   }
-  case WM_RBUTTONDOWN: {
-    MessageBoxW(
-        hWnd,
-        std::to_wstring(getMinX()).c_str(),
-        std::to_wstring(getMinY()).c_str(),
-        MB_OK);
-
-    break;
-  }
   case WM_LBUTTONUP: {
+    ReleaseCapture();
+
     isDragging = FALSE;
     break;
   }
   case WM_MOUSEMOVE: {
     if (isDragging) {
-      int xPos = LOWORD(lParam);
-      int yPos = HIWORD(lParam);
+      auto const xPos = LOWORD(lParam);
+      auto const yPos = HIWORD(lParam);
 
-      offsetPoint.x = beforeDragOffsetPoint.x - (startDragPoint.x - xPos);
-      offsetPoint.y = beforeDragOffsetPoint.y - (startDragPoint.y - yPos);
+      pChartControl->m_offsetPoint.x = beforeDragOffsetPoint.x - (startDragPoint.x - xPos);
+      pChartControl->m_offsetPoint.y = beforeDragOffsetPoint.y - (startDragPoint.y - yPos);
 
       InvalidateRect(hWnd, NULL, TRUE);
     }
     break;
   }
   case WM_MOUSEWHEEL: {
-    int delta = GET_WHEEL_DELTA_WPARAM(wParam);
+    auto const delta = GET_WHEEL_DELTA_WPARAM(wParam);
     // Текущая позиция курсора в клиентских координатах
     POINT cursorPos;
     GetCursorPos(&cursorPos);
     ScreenToClient(hWnd, &cursorPos);
 
     // Преобразуем координаты курсора в мировые координаты
-    double worldX = screenXToWorldX(cursorPos.x);
-    double worldY = screenYToWorldY(cursorPos.y);
+    double worldX = pChartControl->ScreenXToWorldX(cursorPos.x);
+    double worldY = pChartControl->ScreenYToWorldY(cursorPos.y);
 
     // Сохраняем текущее значение зума для корректировки offsetPoint
-    auto prevZoom = zoom;
+    auto const prevZoom = pChartControl->m_zoom;
 
     // Изменение масштаба
     if (delta > 0) {
-      zoom *= 1.1;
+      pChartControl->m_zoom *= 1.1;
     } else if (delta < 0) {
-      zoom /= 1.1;
+      pChartControl->m_zoom /= 1.1;
     }
 
     // Корректируем offsetPoint так, чтобы зумирование было относительно курсора
-    offsetPoint.x += static_cast<int>((prevZoom - zoom) * worldX);
-    offsetPoint.y -= static_cast<int>((prevZoom - zoom) * worldY);
+    pChartControl->m_offsetPoint.x += static_cast<int>((prevZoom - pChartControl->m_zoom) * worldX);
+    pChartControl->m_offsetPoint.y -= static_cast<int>((prevZoom - pChartControl->m_zoom) * worldY);
 
     // Перерисовываем окно
     InvalidateRect(hWnd, NULL, TRUE);
@@ -187,85 +299,16 @@ LRESULT CALLBACK ChartWndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
 
     FillRect(hdc, &rect, (HBRUSH)(COLOR_BTNFACE + 1));
 
+    // -------------------------
+
     // Рисуем сетку
-    {
-
-      auto minValX = getMinX();
-      auto maxValX = getMaxX();
-      auto minValY = getMinY();
-      auto maxValY = getMaxY();
-
-      auto diffX = (maxValX - minValX);
-      auto diffY = (maxValY - minValY);
-      auto diff = max(diffX, diffY);
-      double step = pow(10, std::floor(std::log10(diff / 20)));
-
-      auto drawGridLines = [&](double minVal, double maxVal, bool isVertical) {
-        while (static_cast<int>(step * zoom) <= 10) {
-          step *= 5;
-        }
-        double bigStep = step * 5;
-        auto q = std::floor(minVal / step) * step;
-
-        for (auto i = q; i < maxVal; i += step) {
-          auto lineType = LineType::Common;
-          auto z = std::abs(static_cast<int>(i / bigStep * 1000.) % 1000);
-
-          if (z >= 999 || z <= 1) {
-            if ((isVertical && px(i) == px(0)) || (!isVertical && py(i) == py(0))) {
-              lineType = LineType::Root;
-            } else {
-              lineType = LineType::Solid;
-            }
-          }
-          auto hLinePen = hLinePenCommon;
-          if (lineType == LineType::Solid) {
-            hLinePen = hLinePenSignificant;
-          } else if (lineType == LineType::Root) {
-            hLinePen = hLinePenRoot;
-          }
-          auto hOldPen = SelectObject(hdc, hLinePen);
-          if (isVertical) {
-            MoveToEx(hdc, px(i), 0, NULL);
-            LineTo(hdc, px(i), sy);
-          } else {
-            MoveToEx(hdc, 0, py(i), NULL);
-            LineTo(hdc, sx, py(i));
-          }
-
-          SelectObject(hdc, hOldPen);
-
-          if (lineType == LineType::Solid) {
-            std::wstringstream ws{};
-            ws << i;
-            if (isVertical) {
-              DrawCenteredText(
-                  hdc,
-                  ws.str().c_str(),
-                  px(i),
-                  py(-10. / zoom));
-            } else {
-              DrawCenteredRightText(
-                  hdc,
-                  ws.str().c_str(),
-                  px(-2. / zoom),
-                  py(i));
-            }
-          }
-        }
-      };
-
-      drawGridLines(minValX, maxValX, true);
-      drawGridLines(minValY, maxValY, false);
-    }
+    pChartControl->DrawGrid(hdc);
 
     // Рисуем линии графика
-    {
-      drawChartLine(hdc, hDrawPenRed, [](double x) { return sin(x); });
-      drawChartLine(hdc, hDrawPenGreen, [](double x) { return cos(x); });
-      drawChartLine(hdc, hDrawPenBlue, [](double x) { return x + 2.; });
-      drawChartLine(hdc, hDrawPenBlue, [](double x) { return 5. / x; });
-    }
+    pChartControl->DrawChartLine(hdc, pChartControl->GetBluePen(), [](double x) { return sin(x); });
+    pChartControl->DrawChartLine(hdc, pChartControl->GetRedPen(), [](double x) { return cos(x); });
+    pChartControl->DrawChartLine(hdc, pChartControl->GetGreenPen(), [](double x) { return x + 2.; });
+    pChartControl->DrawChartLine(hdc, pChartControl->GetGreenPen(), [](double x) { return 5. / x; });
 
     // -------------------------
 
@@ -280,20 +323,14 @@ LRESULT CALLBACK ChartWndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
   }
 
   case WM_SIZE: {
-    sx = LOWORD(lParam);
-    sy = HIWORD(lParam);
+    pChartControl->m_sx = LOWORD(lParam);
+    pChartControl->m_sy = HIWORD(lParam);
+
     break;
   }
 
   case WM_DESTROY: {
-    DeleteObject(hLinePenRoot);
-    DeleteObject(hLinePenSignificant);
-    DeleteObject(hLinePenCommon);
-
-    DeleteObject(hDrawPenRed);
-    DeleteObject(hDrawPenGreen);
-    DeleteObject(hDrawPenBlue);
-
+    delete pChartControl;
     break;
   }
   default:
