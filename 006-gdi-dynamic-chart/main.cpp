@@ -69,7 +69,7 @@ int APIENTRY WinMain(
 
   const HWND hWnd = CreateWindowW(
       className,
-      L"Chart",
+      L"Chart (drag/zoom with mouse)",
       WS_OVERLAPPEDWINDOW,
       CW_USEDEFAULT,
       0,

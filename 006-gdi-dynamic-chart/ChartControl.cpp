@@ -2,8 +2,47 @@
 
 #include <cmath>
 #include <functional>
+#include <sstream>
 #include <string>
 
+
+void DebugOutputImpl(const wchar_t* format, ...) {
+  wchar_t msg[255] = {0};
+
+  va_list args;
+  va_start(args, format);
+  vswprintf(msg, sizeof(msg) / sizeof(wchar_t), format, args);
+  va_end(args);
+
+  OutputDebugStringW(msg);
+}
+
+#ifdef _DEBUG
+#define DebugOutput(format, ...) \
+        DebugOutputImpl(format, __VA_ARGS__)
+#else
+    #define DebugOutput(format, ...) \
+        do {} while (0)  // Пустой макрос, который не делает ничего
+#endif
+
+bool areAlmostEqual(double a, double b, double epsilon = 1e-6) {
+  return std::fabs(a - b) < epsilon;
+}
+
+void DrawCenteredText(HDC hdc, const wchar_t* text, int centerX, int centerY) {
+  // Структура для хранения размеров текста
+  SIZE textSize;
+
+  // Получаем размеры текста для текущего шрифта и текста
+  GetTextExtentPoint32(hdc, text, wcslen(text), &textSize);
+
+  // Вычисляем координаты верхнего левого угла для центрирования текста
+  int textX = centerX - (textSize.cx / 2);
+  int textY = centerY - (textSize.cy / 2);
+
+  // Рисуем текст в вычисленных координатах
+  TextOut(hdc, textX, textY, text, wcslen(text));
+}
 
 LRESULT CALLBACK ChartWndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam) {
   static int sx, sy;
@@ -43,7 +82,7 @@ LRESULT CALLBACK ChartWndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
     auto hOldPen = SelectObject(hdc, hPen);
 
     auto isFirstPoint = true;
-    for (auto x = getMinX(); x < getMaxX(); x += (1. / zoom)) {
+    for (auto x = getMinX(); x < getMaxX(); x += (3. / zoom)) {
       auto y = func(x);
 
       auto rx = px(x);
@@ -136,6 +175,39 @@ LRESULT CALLBACK ChartWndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
       // X
       MoveToEx(hdc, px(getMinX()), py(0), NULL);
       LineTo(hdc, px(getMaxX()), py(0));
+
+      auto diff = (getMaxY() - getMinY());
+      double step = pow(10, std::floor(std::log10(diff / 20)));
+      while(static_cast<int>(step * zoom) <= 10) {
+        step*=5;
+        
+      }
+      double bigStep = step * 5;
+
+      auto q = std::floor(getMinY() / step) * step;
+
+      for (auto i = q; i < getMaxY(); i += step) {
+        auto w = 10;
+
+        
+        auto z = std::abs(static_cast<int>(i / bigStep * 1000.) % 1000);
+        
+        if (z >= 999 || z <= 1) {
+
+          w = 20;
+
+          std::wstringstream ws{};
+          ws << i;
+
+          DrawCenteredText(
+              hdc,
+              ws.str().c_str(),
+              px(-40. / zoom),
+              py(i));
+        }
+        MoveToEx(hdc, px(-w / zoom), py(i), NULL);
+        LineTo(hdc, px(+w / zoom), py(i));
+      }
     }
 
     // Рисуем линии графика
@@ -143,7 +215,7 @@ LRESULT CALLBACK ChartWndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
       drawChartLine(hdc, hDrawPenRed, [](double x) { return sin(x); });
       drawChartLine(hdc, hDrawPenGreen, [](double x) { return cos(x); });
       drawChartLine(hdc, hDrawPenBlue, [](double x) { return x + 2.; });
-      drawChartLine(hdc, hDrawPenBlue, [](double x) { return 5./x; });
+      drawChartLine(hdc, hDrawPenBlue, [](double x) { return 5. / x; });
     }
 
     // -------------------------
