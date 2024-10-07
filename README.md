@@ -2,7 +2,7 @@
 
 ## [001-gdi-square](./001-gdi-square)
 `gdi`, `timer`, `button`
- 
+
 ## [002-gdi-balls-animation](./002-gdi-balls-animation)
 `gdi`, `animation`, `double-buffer`, `physics`, `timer`, `chrono`
 
@@ -14,3 +14,7 @@
 
 ## [005-gdi-stopwatch](./005-gdi-stopwatch)
 `gdi`, `custom-control`, `timer`
+
+
+## [006-gdi-dynamic-chart](./006-gdi-dynamic-chart)
+`gdi`, `custom-control`, `chart-mouse-drag`
