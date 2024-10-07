@@ -5,6 +5,9 @@
 #include <sstream>
 #include <string>
 
+enum class LineType {
+  Common, Solid, Root
+};
 
 void DebugOutputImpl(const wchar_t* format, ...) {
   wchar_t msg[255] = {0};
@@ -51,6 +54,11 @@ LRESULT CALLBACK ChartWndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
   static POINT beforeDragOffsetPoint{0, 0};
   static POINT startDragPoint{0, 0};
   static BOOL isDragging = FALSE;
+
+  // Линии сетки
+  static HPEN hLinePenRoot = CreatePen(PS_SOLID, 2, RGB(50, 50, 50));
+  static HPEN hLinePenSignificant = CreatePen(PS_SOLID, 1, RGB(50, 50, 50));
+  static HPEN hLinePenCommon = CreatePen(PS_SOLID, 1, RGB(200, 200, 200));
 
   static HPEN hDrawPenRed = CreatePen(PS_SOLID, 2, RGB(255, 0, 0));
   static HPEN hDrawPenGreen = CreatePen(PS_SOLID, 2, RGB(0, 200, 0));
@@ -194,74 +202,145 @@ LRESULT CALLBACK ChartWndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
 
     // Рисуем оси координат
     {
-      // Y
-      MoveToEx(hdc, px(0), py(getMinY()), NULL);
-      LineTo(hdc, px(0), py(getMaxY()));
-
-      // X
-      MoveToEx(hdc, px(getMinX()), py(0), NULL);
-      LineTo(hdc, px(getMaxX()), py(0));
-
       // Градация Y оси
-      {
-        auto diff = (getMaxY() - getMinY());
-        double step = pow(10, std::floor(std::log10(diff / 20)));
-        while (static_cast<int>(step * zoom) <= 10) {
-          step *= 5;
-
-        }
-        double bigStep = step * 5;
-        auto q = std::floor(getMinY() / step) * step;
-
-        for (auto i = q; i < getMaxY(); i += step) {
-          auto w = 5;
-          auto z = std::abs(static_cast<int>(i / bigStep * 1000.) % 1000);
-
-          if (z >= 999 || z <= 1 && (py(i) != py(0))) {
-            w = 15;
-            std::wstringstream ws{};
-            ws << i;
-            DrawCenteredText(
-                hdc,
-                ws.str().c_str(),
-                px(-40. / zoom),
-                py(i));
-          }
-          MoveToEx(hdc, px(-w / zoom), py(i), NULL);
-          LineTo(hdc, px(+w / zoom), py(i));
-        }
-      }
+      // {
+      //   auto diff = (getMaxY() - getMinY());
+      //   double step = pow(10, std::floor(std::log10(diff / 20)));
+      //   while (static_cast<int>(step * zoom) <= 10) {
+      //     step *= 5;
+      //
+      //   }
+      //   double bigStep = step * 5;
+      //   auto q = std::floor(getMinY() / step) * step;
+      //
+      //   for (auto i = q; i < getMaxY(); i += step) {
+      //     auto w = 5;
+      //     auto z = std::abs(static_cast<int>(i / bigStep * 1000.) % 1000);
+      //
+      //     if (z >= 999 || z <= 1 && (py(i) != py(0))) {
+      //       w = 15;
+      //       std::wstringstream ws{};
+      //       ws << i;
+      //       DrawCenteredText(
+      //           hdc,
+      //           ws.str().c_str(),
+      //           px(-40. / zoom),
+      //           py(i));
+      //     }
+      //     MoveToEx(hdc, 0, py(i), NULL);
+      //     LineTo(hdc, sx, py(i));
+      //   }
+      // }
 
       // Градация X оси
 
-      {
-        auto diff = (getMaxX() - getMinX());
+      auto drawGridLines = [&](double min, double max, bool isVertical) {
+        auto diff = (max - min);
         double step = pow(10, std::floor(std::log10(diff / 20)));
         while (static_cast<int>(step * zoom) <= 10) {
           step *= 5;
 
         }
         double bigStep = step * 5;
-        auto q = std::floor(getMinX() / step) * step;
+        auto q = std::floor(min / step) * step;
 
-        for (auto i = q; i < getMaxX(); i += step) {
-          auto w = 5;
+        for (auto i = q; i < max; i += step) {
+          auto lineType = LineType::Common;
           auto z = std::abs(static_cast<int>(i / bigStep * 1000.) % 1000);
 
-          if (z >= 999 || z <= 1 && (px(i) != px(0))) {
-            w = 15;
+          if (z >= 999 || z <= 1) {
+            if ((isVertical && px(i) == px(0)) || (!isVertical && py(i) == py(0))) {
+              lineType = LineType::Root;
+            } else {
+              lineType = LineType::Solid;
+            }
+          }
+          auto hLinePen = hLinePenCommon;
+          if (lineType == LineType::Solid) {
+            hLinePen = hLinePenSignificant;
+          } else if (lineType == LineType::Root) {
+            hLinePen = hLinePenRoot;
+          }
+          auto hOldPen = SelectObject(hdc, hLinePen);
+          if (isVertical) {
+            MoveToEx(hdc, px(i), 0, NULL);
+            LineTo(hdc, px(i), sy);
+          } else {
+            MoveToEx(hdc, 0, py(i), NULL);
+            LineTo(hdc, sx, py(i));
+          }
+
+          SelectObject(hdc, hOldPen);
+
+          if (lineType == LineType::Solid) {
             std::wstringstream ws{};
             ws << i;
-            DrawCenteredText(
-                hdc,
-                ws.str().c_str(),
-                px(i),
-                py(-40. / zoom));
+            if (isVertical) {
+              DrawCenteredText(
+                  hdc,
+                  ws.str().c_str(),
+                  px(i),
+                  py(-40. / zoom));
+            } else {
+              DrawCenteredText(
+                  hdc,
+                  ws.str().c_str(),
+                  px(-40. / zoom),
+                  py(i));
+            }
+
           }
-          MoveToEx(hdc, px(i), py(-w / zoom), NULL);
-          LineTo(hdc, px(i), py(+w / zoom));
         }
-      }
+      };
+
+      drawGridLines(getMinX(), getMaxX(), true);
+      drawGridLines(getMinY(), getMaxY(), false);
+
+      // {
+      //   auto diff = (getMaxX() - getMinX());
+      //   double step = pow(10, std::floor(std::log10(diff / 20)));
+      //   while (static_cast<int>(step * zoom) <= 10) {
+      //     step *= 5;
+      //
+      //   }
+      //   double bigStep = step * 5;
+      //   auto q = std::floor(getMinX() / step) * step;
+      //
+      //   for (auto i = q; i < getMaxX(); i += step) {
+      //     auto lineType = LineType::Common;
+      //     auto z = std::abs(static_cast<int>(i / bigStep * 1000.) % 1000);
+      //
+      //     if (z >= 999 || z <= 1) {
+      //
+      //       if (px(i) == px(0)) {
+      //         lineType = LineType::Root;
+      //       } else {
+      //         lineType = LineType::Solid;
+      //       }
+      //
+      //     }
+      //     auto hLinePen = hLinePenCommon;
+      //     if (lineType == LineType::Solid) {
+      //       hLinePen = hLinePenSignificant;
+      //     } else if (lineType == LineType::Root) {
+      //       hLinePen = hLinePenRoot;
+      //     }
+      //     auto hOldPen = SelectObject(hdc, hLinePen);
+      //     MoveToEx(hdc, px(i), 0, NULL);
+      //     LineTo(hdc, px(i), sy);
+      //     SelectObject(hdc, hOldPen);
+      //
+      //     if (lineType == LineType::Solid) {
+      //       std::wstringstream ws{};
+      //       ws << i;
+      //       DrawCenteredText(
+      //           hdc,
+      //           ws.str().c_str(),
+      //           px(i),
+      //           py(-40. / zoom));
+      //     }
+      //   }
+      // }
     }
 
     // Рисуем линии графика
@@ -291,9 +370,14 @@ LRESULT CALLBACK ChartWndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
   }
 
   case WM_DESTROY: {
+    DeleteObject(hLinePenRoot);
+    DeleteObject(hLinePenSignificant);
+    DeleteObject(hLinePenCommon);
+
     DeleteObject(hDrawPenRed);
     DeleteObject(hDrawPenGreen);
     DeleteObject(hDrawPenBlue);
+
     break;
   }
   default:
