@@ -1,14 +1,6 @@
-BasedOnStyle: LLVM
-ColumnLimit: 120
-IndentWidth: 2
-AlignAfterOpenBracket: Align
-BinPackParameters: false
-BinPackArguments: false
-ConstructorInitializerAllOnOneLineOrOnePerLine: true
----
-Language: Cpp
-IndentWidth: 2
-ForEachMacros: ['foreach']
-# Force pointers to the type for C++.
-DerivePointerAlignment: false
-PointerAlignment: Left
+BasedOnStyle: google
+ColumnLimit: 100
+ContinuationIndentWidth: 4
+IndentWidth: 4
+TabWidth: 4
+ConstructorInitializerIndentWidth: 4
