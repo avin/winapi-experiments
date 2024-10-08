@@ -132,30 +132,33 @@ BOOL InitInstance(HINSTANCE hInstance, int nCmdShow) {
 LRESULT CALLBACK WndProc(HWND hWnd,
                          UINT message,
                          WPARAM wParam,
-                         LPARAM
-                         lParam) {
-    static TCHAR fileName[256] = _T("");
-    static OPENFILENAME file;
-    static std::vector<std::string> v;
+                         LPARAM lParam) {
+    static TCHAR fileName[256] = _T(""); // Массив для хранения имени файла
+    static OPENFILENAME file; // Структура для открытия/сохранения файла
+    static std::vector<std::string> linesStorage; // Вектор строк для хранения содержимого файла
     static int maxStrLength, sx, sy, vScrollPos, hScrollPos, maxScrollVertRange, maxScrollHorzRange;
-    static SIZE fontSize = {8, 16}; // Ширина и высота символа
+    static SIZE fontSize = {8, 16}; // Размер символа: ширина и высота
 
     switch (message) {
         case WM_CREATE: {
+            // Инициализация структуры OPENFILENAME для открытия и сохранения файла
             file.lStructSize = sizeof(OPENFILENAME);
             file.hInstance = hInst;
             file.lpstrFilter = _T("Text\0*.txt");
             file.lpstrFile = fileName;
             file.nMaxFile = 256;
             file.lpstrInitialDir = _T(".\\");
-            file.lpstrDefExt = _T("txt");
+            file.lpstrDefExt = _T("txt"); // Установка расширения по умолчанию на ".txt"
             break;
         }
 
         case WM_SIZE: {
-            sx = LOWORD(lParam);
-            sy = HIWORD(lParam);
-            auto k = v.size() - sy / fontSize.cy;
+            // Изменение размеров окна и обновление полос прокрутки
+            sx = LOWORD(lParam); // Ширина клиентской области
+            sy = HIWORD(lParam); // Высота клиентской области
+
+            // Вертикальная прокрутка: расчет и установка диапазона
+            auto k = linesStorage.size() - sy / fontSize.cy;
             if (k > 0) {
                 maxScrollVertRange = k;
             } else {
@@ -164,6 +167,7 @@ LRESULT CALLBACK WndProc(HWND hWnd,
             SetScrollRange(hWnd, SB_VERT, 0, maxScrollVertRange, TRUE);
             SetScrollPos(hWnd, SB_VERT, vScrollPos, TRUE);
 
+            // Горизонтальная прокрутка: расчет и установка диапазона
             k = maxStrLength - sx / fontSize.cx;
             if (k > 0) {
                 maxScrollHorzRange = k;
@@ -176,115 +180,123 @@ LRESULT CALLBACK WndProc(HWND hWnd,
         }
 
         case WM_VSCROLL: {
+            // Обработка вертикальной прокрутки
             switch (LOWORD(wParam)) {
                 case SB_LINEUP: {
-                    vScrollPos--;
+                    vScrollPos--; // Прокрутка на одну строку вверх
                     break;
                 }
                 case SB_LINEDOWN: {
-                    vScrollPos++;
+                    vScrollPos++; // Прокрутка на одну строку вниз
                     break;
                 }
                 case SB_PAGEUP: {
-                    vScrollPos -= sy / fontSize.cy;
+                    vScrollPos -= sy / fontSize.cy; // Прокрутка на одну страницу вверх
                     break;
                 }
                 case SB_PAGEDOWN: {
-                    vScrollPos += sy / fontSize.cy;
+                    vScrollPos += sy / fontSize.cy; // Прокрутка на одну страницу вниз
                     break;
                 }
                 case SB_THUMBTRACK: {
-                    vScrollPos = HIWORD(wParam);
+                    vScrollPos = HIWORD(wParam); // Перемещение ползунка
                     break;
                 }
             }
+            // Ограничение позиции прокрутки
             vScrollPos = max(0, min(vScrollPos, maxScrollVertRange));
             if (vScrollPos != GetScrollPos(hWnd, SB_VERT)) {
                 SetScrollPos(hWnd, SB_VERT, vScrollPos, TRUE);
-                InvalidateRect(hWnd, NULL, TRUE);
+                InvalidateRect(hWnd, NULL, TRUE); // Перерисовка окна
             }
             break;
         }
 
         case WM_HSCROLL: {
+            // Обработка горизонтальной прокрутки
             switch (LOWORD(wParam)) {
                 case SB_LINEUP: {
-                    hScrollPos--;
+                    hScrollPos--; // Прокрутка на один символ влево
                     break;
                 }
                 case SB_LINEDOWN: {
-                    hScrollPos++;
+                    hScrollPos++; // Прокрутка на один символ вправо
                     break;
                 }
                 case SB_PAGEUP: {
-                    hScrollPos -= 8;
+                    hScrollPos -= 8; // Прокрутка на восемь символов влево
                     break;
                 }
                 case SB_PAGEDOWN: {
-                    hScrollPos += 8;
+                    hScrollPos += 8; // Прокрутка на восемь символов вправо
                     break;
                 }
                 case SB_THUMBTRACK: {
-                    hScrollPos = HIWORD(wParam);
+                    hScrollPos = HIWORD(wParam); // Перемещение ползунка
                     break;
                 }
             }
+            // Ограничение позиции прокрутки
             hScrollPos = max(0, min(hScrollPos, maxScrollHorzRange));
             if (hScrollPos != GetScrollPos(hWnd, SB_HORZ)) {
                 SetScrollPos(hWnd, SB_HORZ, hScrollPos, TRUE);
-                InvalidateRect(hWnd, NULL, TRUE);
+                InvalidateRect(hWnd, NULL, TRUE); // Перерисовка окна
             }
             break;
         }
 
         case WM_COMMAND: {
+            // Обработка команд меню
             switch (LOWORD(wParam)) {
                 case ID_FILE_NEW: {
-                    if (!v.empty()) {
-                        std::vector<std::string>().swap(v);
+                    // Новый файл - очистка содержимого
+                    if (!linesStorage.empty()) {
+                        std::vector<std::string>().swap(linesStorage); // Очищаем вектор
                     }
-                    SendMessage(hWnd, WM_SIZE, 0, sy << 16 | sx);
-                    InvalidateRect(hWnd, NULL, TRUE);
+                    SendMessage(hWnd, WM_SIZE, 0, sy << 16 | sx); // Обновление размера
+                    InvalidateRect(hWnd, NULL, TRUE); // Перерисовка окна
                     break;
                 }
 
                 case ID_FILE_OPEN: {
+                    // Открытие файла для чтения
                     std::ifstream in;
                     file.lpstrTitle = _T("Открыть файл для чтения");
                     file.Flags = OFN_HIDEREADONLY;
                     if (!GetOpenFileName(&file)) {
-                        return 1;
+                        return 1; // Если файл не выбран
                     }
-                    in.open(fileName);
+                    in.open(fileName); // Открываем файл для чтения
                     std::string str;
                     while (getline(in, str)) {
+                        // Находим максимальную длину строки
                         if (maxStrLength < str.length()) {
                             maxStrLength = str.length();
                         }
-                        v.push_back(str);
+                        linesStorage.push_back(str); // Добавляем строку в вектор
                     }
                     in.close();
-                    SendMessage(hWnd, WM_SIZE, 0, sy << 16 | sx);
-                    InvalidateRect(hWnd, NULL, TRUE);
+                    SendMessage(hWnd, WM_SIZE, 0, sy << 16 | sx); // Обновление размера
+                    InvalidateRect(hWnd, NULL, TRUE); // Перерисовка окна
                     break;
                 }
                 case ID_FILE_SAVE: {
+                    // Сохранение файла
                     std::ofstream out;
                     file.lpstrTitle = _T("Открыть файл для записи");
                     file.Flags = OFN_NOTESTFILECREATE;
                     if (!GetSaveFileName(&file)) {
-                        return 1;
+                        return 1; // Если файл не выбран
                     }
-                    out.open(fileName);
-                    for (auto it = v.begin(); it != v.end(); ++it) {
-                        out << *it << '\n';
+                    out.open(fileName); // Открываем файл для записи
+                    for (auto it = linesStorage.begin(); it != linesStorage.end(); ++it) {
+                        out << *it << '\n'; // Записываем каждую строку
                     }
-
                     out.close();
                     break;
                 }
                 case IDM_EXIT: {
-                    DestroyWindow(hWnd);
+                    DestroyWindow(hWnd); // Закрытие окна
                     break;
                 }
                 default: {
@@ -295,28 +307,29 @@ LRESULT CALLBACK WndProc(HWND hWnd,
         }
 
         case WM_ERASEBKGND: {
-            return 1;
+            return 1; // Убираем мерцание при перерисовке, возвращая 1
         }
         case WM_PAINT: {
             PAINTSTRUCT ps;
-            HDC hdcOrig = BeginPaint(hWnd, &ps);
+            HDC hdcOrig = BeginPaint(hWnd, &ps); // Начало рисования
 
             RECT rect;
-            GetClientRect(hWnd, &rect);
+            GetClientRect(hWnd, &rect); // Получение размеров клиентской области
 
-            HDC hdc = CreateCompatibleDC(hdcOrig);
-            HBITMAP hbm = CreateCompatibleBitmap(hdcOrig, rect.right, rect.bottom);
-            HBITMAP hOldBitmap = (HBITMAP)SelectObject(hdc, hbm);
+            HDC hdc = CreateCompatibleDC(hdcOrig); // Создаем совместимый контекст устройства
+            HBITMAP hbm = CreateCompatibleBitmap(hdcOrig, rect.right, rect.bottom); // Создаем битмап
+            HBITMAP hOldBitmap = (HBITMAP)SelectObject(hdc, hbm); // Устанавливаем битмап
 
             // --------------------
 
-            FillRect(hdc, &rect, (HBRUSH)(COLOR_WINDOW + 1));
+            FillRect(hdc, &rect, (HBRUSH)(COLOR_WINDOW + 1)); // Заполнение фона
 
             auto y = 0;
-            for (auto it = v.begin() + vScrollPos;
-                 it != v.end() && y < sy;
+            for (auto it = linesStorage.begin() + vScrollPos;
+                 it != linesStorage.end() && y < sy;
                  ++it, y += fontSize.cy) {
                 if (hScrollPos < it->length()) {
+                    // Выводим текст построчно с учётом горизонтального смещения
                     TabbedTextOutA(
                         hdc,
                         0,
@@ -331,20 +344,21 @@ LRESULT CALLBACK WndProc(HWND hWnd,
 
             // --------------------
 
-            BitBlt(hdcOrig, 0, 0, rect.right, rect.bottom, hdc, 0, 0,SRCCOPY);
+            // Копируем битмап на экран
+            BitBlt(hdcOrig, 0, 0, rect.right, rect.bottom, hdc, 0, 0, SRCCOPY); // NOLINT(readability-suspicious-call-argument)
 
-            SelectObject(hdc, hOldBitmap);
-            DeleteObject(hbm);
-            DeleteDC(hdc);
+            SelectObject(hdc, hOldBitmap); // Возвращаем оригинальный битмап
+            DeleteObject(hbm); // Удаляем битмап
+            DeleteDC(hdc); // Удаляем контекст устройства
 
-            EndPaint(hWnd, &ps);
+            EndPaint(hWnd, &ps); // Завершаем рисование
             break;
         }
         case WM_DESTROY:
-            PostQuitMessage(0);
+            PostQuitMessage(0); // Выход из программы
             break;
         default:
-            return DefWindowProc(hWnd, message, wParam, lParam);
+            return DefWindowProc(hWnd, message, wParam, lParam); // Обработка остальных сообщений
     }
     return 0;
 }
