@@ -15,6 +15,11 @@
 ## [005-gdi-stopwatch](./005-gdi-stopwatch)
 `gdi`, `custom-control`, `timer`
 
-
 ## [006-gdi-dynamic-chart](./006-gdi-dynamic-chart)
 `gdi`, `custom-control`, `chart-mouse-drag`, `double-buffer`, `debug`
+
+## [007-file-view](./007-file-view)
+`file`, `scroll`
+
+## [008-scroll-debug](./008-scroll-debug)
+`scroll`
