@@ -23,7 +23,6 @@ int processScrollMessage(const WPARAM wParam, const int minVal, const int maxVal
     }
 };
 
-
 LRESULT CALLBACK WndProc(const HWND hWnd, const UINT message, const WPARAM wParam, const LPARAM lParam) {
     static int arenaWidth{0}, arenaHeight{0};
     static int vScrollMin{0}, vScrollMax{200}, vScrollPos{20};
@@ -66,6 +65,7 @@ LRESULT CALLBACK WndProc(const HWND hWnd, const UINT message, const WPARAM wPara
             InvalidateRect(hWnd, NULL, TRUE);
             break;
         }
+
         case WM_HSCROLL: {
             hScrollPos = processScrollMessage(wParam, hScrollMin, hScrollMax, hScrollPageSize, hScrollPos);
             SetScrollPos(hWnd, SB_HORZ, hScrollPos, TRUE);
@@ -123,10 +123,12 @@ LRESULT CALLBACK WndProc(const HWND hWnd, const UINT message, const WPARAM wPara
             EndPaint(hWnd, &ps);
             break;
         }
+
         case WM_DESTROY: {
             PostQuitMessage(0);
             break;
         }
+
         default:
             return DefWindowProc(hWnd, message, wParam, lParam);
     }
