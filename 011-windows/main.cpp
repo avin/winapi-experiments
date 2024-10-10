@@ -36,7 +36,7 @@ LRESULT CALLBACK WndProc(const HWND hWnd, const UINT message, const WPARAM wPara
         }
         case WM_TIMER: {
             // Увеличиваем угол для движения по эллипсу
-            animationTick += 3; // Шаг для изменения угла.
+            animationTick += 2; // Шаг для изменения угла.
             if (animationTick >= 360) animationTick = 0; // Ограничиваем значение до 360
 
             // Получаем позицию родительского окна
@@ -53,6 +53,8 @@ LRESULT CALLBACK WndProc(const HWND hWnd, const UINT message, const WPARAM wPara
             HWND zOrder = (sin(animationTick * 3.14159 / 180.0) < 0) ? hWnd : HWND_TOP;
             SetWindowPos(hChildWindow, zOrder, x, y, 0, 0, SWP_NOSIZE | SWP_NOACTIVATE);
 
+            ShowWindow(hChildWindow, SW_SHOW); // Теперь можно показать окно
+
             break;
         }
 
@@ -66,10 +68,12 @@ LRESULT CALLBACK WndProc(const HWND hWnd, const UINT message, const WPARAM wPara
                     RECT rect;
                     GetWindowRect(hWnd, &rect);
 
+                    // WS_EX_LAYERED | WS_EX_TRANSPARENT,
                     hChildWindow = CreateWindowEx(WS_EX_LAYERED | WS_EX_TRANSPARENT,
                                                   L"Window1Class",
                                                   L"Window1",
-                                                  WS_DISABLED | WS_SYSMENU | WS_VISIBLE | WS_THICKFRAME | WS_CAPTION,
+                                                  // без WS_VISIBLE, окно покажем после просчета позиции в таймере
+                                                  WS_DISABLED | WS_SYSMENU | WS_THICKFRAME | WS_CAPTION,
                                                   1000, 1000,
                                                   200, 200,
                                                   NULL, //hWnd,
@@ -78,7 +82,7 @@ LRESULT CALLBACK WndProc(const HWND hWnd, const UINT message, const WPARAM wPara
                                                   NULL
                         );
 
-                    SetTimer(hWnd, 1, 16, NULL);
+                    SetTimer(hWnd, 1, 10, NULL);
                     break;
                 }
             }
