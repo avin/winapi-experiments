@@ -1,13 +1,57 @@
 #include <Windows.h>
-
+#include <cmath>
 #include "window1.h"
+#include <gdiplus.h>
+#include <atlbase.h>
+#include <atlcom.h>
+#pragma comment(lib, "gdiplus.lib")
+
 
 #define ID_OPEN_WINDOW1 1
 
+// Функция для инициализации GDI+
+ULONG_PTR InitializeGDIPlus() {
+    Gdiplus::GdiplusStartupInput gdiplusStartupInput;
+    ULONG_PTR gdiplusToken;
+    Gdiplus::GdiplusStartup(&gdiplusToken, &gdiplusStartupInput, NULL);
+    return gdiplusToken;
+}
+
+// Функция для завершения работы GDI+
+void ShutdownGDIPlus(ULONG_PTR gdiplusToken) {
+    Gdiplus::GdiplusShutdown(gdiplusToken);
+}
+
 LRESULT CALLBACK WndProc(const HWND hWnd, const UINT message, const WPARAM wParam, const LPARAM lParam) {
+    static HWND hChildWindow;
+    static auto animationTick{0};
+    static const int radiusX = 600; // Радиус эллипса по горизонтали
+    static const int radiusY = 100; // Радиус эллипса по вертикали
+
     switch (message) {
         case WM_CREATE: {
-            CreateWindow(L"BUTTON", L"Open window", WS_VISIBLE | WS_CHILD, 20, 20, 100, 30, hWnd, (HMENU)ID_OPEN_WINDOW1, NULL, NULL);
+            CreateWindow(L"BUTTON", L"Open moon window", WS_VISIBLE | WS_CHILD, 20, 20, 200, 30, hWnd, (HMENU)ID_OPEN_WINDOW1, NULL, NULL);
+
+            break;
+        }
+        case WM_TIMER: {
+            // Увеличиваем угол для движения по эллипсу
+            animationTick += 3; // Шаг для изменения угла.
+            if (animationTick >= 360) animationTick = 0; // Ограничиваем значение до 360
+
+            // Получаем позицию родительского окна
+            RECT rect;
+            GetWindowRect(hWnd, &rect);
+            int centerX = rect.left + (rect.right - rect.left) / 2;
+            int centerY = rect.top + (rect.bottom - rect.top) / 2;
+
+            // Рассчитываем координаты дочернего окна по эллипсу
+            int x = centerX + (int)(radiusX * cos(animationTick * 3.14159 / 180.0)) - 100; // -100 чтобы сдвинуть в центр
+            int y = centerY + (int)(radiusY * sin(animationTick * 3.14159 / 180.0)) - 100; // -100 чтобы сдвинуть в центр
+
+            // Определяем Z-порядок в зависимости от угла: верхняя часть - за окном, нижняя - перед окном
+            HWND zOrder = (sin(animationTick * 3.14159 / 180.0) < 0) ? hWnd : HWND_TOP;
+            SetWindowPos(hChildWindow, zOrder, x, y, 0, 0, SWP_NOSIZE | SWP_NOACTIVATE);
 
             break;
         }
@@ -15,19 +59,26 @@ LRESULT CALLBACK WndProc(const HWND hWnd, const UINT message, const WPARAM wPara
         case WM_COMMAND: {
             switch (LOWORD(wParam)) {
                 case ID_OPEN_WINDOW1: {
+                    if (IsWindow(hChildWindow)) {
+                        break;
+                    }
+
                     RECT rect;
                     GetWindowRect(hWnd, &rect);
 
-                    auto hWindow1 = CreateWindow(L"Window1Class",
-                                                 L"Window1",
-                                                 WS_SYSMENU | WS_POPUP | WS_VISIBLE | WS_THICKFRAME | WS_CAPTION,
-                                                 rect.left + 40, rect.top + 40,
-                                                 200, 200,
-                                                 hWnd,
-                                                 0,
-                                                 (HINSTANCE)GetWindowLongPtr(hWnd, GWLP_HINSTANCE),
-                                                 NULL
+                    hChildWindow = CreateWindowEx(WS_EX_LAYERED | WS_EX_TRANSPARENT,
+                                                  L"Window1Class",
+                                                  L"Window1",
+                                                  WS_DISABLED | WS_SYSMENU | WS_VISIBLE | WS_THICKFRAME | WS_CAPTION,
+                                                  1000, 1000,
+                                                  200, 200,
+                                                  NULL, //hWnd,
+                                                  0,
+                                                  (HINSTANCE)GetWindowLongPtr(hWnd, GWLP_HINSTANCE),
+                                                  NULL
                         );
+
+                    SetTimer(hWnd, 1, 16, NULL);
                     break;
                 }
             }
@@ -35,6 +86,7 @@ LRESULT CALLBACK WndProc(const HWND hWnd, const UINT message, const WPARAM wPara
         }
 
         case WM_DESTROY: {
+            KillTimer(hWnd, 1);
             PostQuitMessage(0);
             break;
         }
@@ -50,6 +102,8 @@ int APIENTRY WinMain(
     _In_ LPSTR lpCmdLine,
     _In_ int nCmdShow
     ) {
+    ULONG_PTR gdiplusToken = InitializeGDIPlus();
+
     WNDCLASSEX wcex{};
 
     auto const className = L"MainWindowClass";
@@ -95,6 +149,8 @@ int APIENTRY WinMain(
         TranslateMessage(&msg);
         DispatchMessage(&msg);
     }
+
+    ShutdownGDIPlus(gdiplusToken);
 
     return static_cast<int>(msg.wParam);
 }
