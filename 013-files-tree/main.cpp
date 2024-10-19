@@ -53,12 +53,24 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE, LPWSTR, int nCmdShow) {
 
     RegisterClassExW(&wcex);
 
+    // Получаем размеры экрана
+    int screenWidth = GetSystemMetrics(SM_CXSCREEN);
+    int screenHeight = GetSystemMetrics(SM_CYSCREEN);
+
+    // Задаем размеры окна
+    int windowWidth = 600;
+    int windowHeight = 450;
+
+    // Вычисляем координаты для центра экрана
+    int windowX = (screenWidth - windowWidth) / 2;
+    int windowY = (screenHeight - windowHeight) / 2;
+
     HWND hwnd = CreateWindowExW(
         0,
         L"TreeViewApp",
         L"File Tree with Checkboxes",
         WS_OVERLAPPEDWINDOW,
-        CW_USEDEFAULT, CW_USEDEFAULT, 600, 450,
+        windowX, windowY, windowWidth, windowHeight,
         NULL, NULL, hInstance, NULL);
 
     if (!hwnd) {
