@@ -120,6 +120,17 @@ std::wstring SelectFolder(HWND hwnd) {
     return folderPath;
 }
 
+void DisableCheckboxForParentItems(HWND hTreeView, HTREEITEM hItem) {
+    TVITEM tvi = { 0 };
+    tvi.mask = TVIF_STATE | TVIF_HANDLE;
+    tvi.hItem = hItem;
+    tvi.stateMask = TVIS_STATEIMAGEMASK;
+
+    // Устанавливаем "пустое" состояние для чекбокса (0 - отсутствует иконка чекбокса)
+    tvi.state = INDEXTOSTATEIMAGEMASK(0);
+    TreeView_SetItem(hTreeView, &tvi);
+}
+
 void AddItemsToTree(HWND hTree, HTREEITEM hParent, const std::wstring& path) {
     WIN32_FIND_DATAW fd;
     HANDLE hFind = INVALID_HANDLE_VALUE;
@@ -163,6 +174,7 @@ void AddItemsToTree(HWND hTree, HTREEITEM hParent, const std::wstring& path) {
             if (fd.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) {
                 tvis.item.cChildren = 1;
                 HTREEITEM hItem = TreeView_InsertItem(hTree, &tvis);
+                DisableCheckboxForParentItems(hTreeView, hItem);
                 AddItemsToTree(hTree, hItem, fullPath);
             } else {
                 tvis.item.cChildren = 0;
@@ -322,7 +334,7 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
             // Create the tree view
             hTreeView = CreateWindowExW(
                 WS_EX_CLIENTEDGE, WC_TREEVIEWW, L"",
-                WS_VISIBLE | WS_CHILD | TVS_HASLINES | TVS_LINESATROOT | TVS_HASBUTTONS | TVS_CHECKBOXES | WS_CLIPSIBLINGS,
+                WS_VISIBLE | WS_CHILD | TVS_HASLINES | TVS_LINESATROOT | TVS_HASBUTTONS | TVS_CHECKBOXES | TVS_DISABLEDRAGDROP,
                 0, 0, 600, 320,
                 hwnd, (HMENU)1, hInst, NULL);
 
