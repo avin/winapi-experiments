@@ -21,8 +21,8 @@
   <PropertyGroup Label="Globals">
     <VCProjectVersion>17.0</VCProjectVersion>
     <Keyword>Win32Proj</Keyword>
-    <ProjectGuid>{8b9d3e4a-fb2b-49b6-99a4-270ca0c1509e}</ProjectGuid>
-    <RootNamespace>My012trayhotkey</RootNamespace>
+    <ProjectGuid>{12a3f41e-6749-4234-ac9b-074fc2a8c706}</ProjectGuid>
+    <RootNamespace>My013filestree</RootNamespace>
     <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
@@ -132,10 +132,6 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="main.cpp" />
-    <ClCompile Include="TrayApp.cpp" />
-  </ItemGroup>
-  <ItemGroup>
-    <ClInclude Include="TrayApp.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
