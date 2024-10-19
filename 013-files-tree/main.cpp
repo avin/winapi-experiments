@@ -32,6 +32,7 @@ LRESULT CALLBACK WndProc(HWND, UINT, WPARAM, LPARAM);
 void CopySelectedFilesToClipboard(HWND hwnd);
 std::wstring SelectFolder(HWND hwnd);
 void CollectCheckedFiles(HWND hTree, HTREEITEM hItem, const std::wstring& path);
+HICON CreatePaddedIcon(HICON hOriginalIcon, int padding) ;
 
 int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE, LPWSTR, int nCmdShow) {
     hInst = hInstance;
@@ -141,45 +142,30 @@ void AddItemsToTree(HWND hTree, HTREEITEM hParent, const std::wstring& path) {
 
             std::wstring fullPath = path + L'\\' + fd.cFileName;
 
-            // Переменная для хранения индекса иконки
+            // Variable for storing the icon index
             int imageIndex = 0;
 
-            // Если элемент — директория, назначаем иконку папки
+            // Get the icon
+            SHFILEINFOW sfi = {};
+            SHGetFileInfoW(fullPath.c_str(), fd.dwFileAttributes, &sfi, sizeof(sfi), SHGFI_ICON | SHGFI_SMALLICON);
+
+            // Add padding to the icon
+            if (sfi.hIcon) {
+                HICON hPaddedIcon = CreatePaddedIcon(sfi.hIcon, 8); // Adjust padding as needed
+                imageIndex = ImageList_AddIcon(hImageList, hPaddedIcon);
+                DestroyIcon(sfi.hIcon);
+                DestroyIcon(hPaddedIcon);
+            }
+
+            tvis.item.iImage = imageIndex;
+            tvis.item.iSelectedImage = imageIndex;
+
             if (fd.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) {
                 tvis.item.cChildren = 1;
-
-                // Получаем иконку папки
-                SHFILEINFOW sfi = {};
-                SHGetFileInfoW(fullPath.c_str(), FILE_ATTRIBUTE_DIRECTORY, &sfi, sizeof(sfi), SHGFI_ICON | SHGFI_SMALLICON);
-
-                // Добавляем иконку в список изображений, если она не была добавлена ранее
-                if (sfi.hIcon) {
-                    imageIndex = ImageList_AddIcon(hImageList, sfi.hIcon);
-                    DestroyIcon(sfi.hIcon); // Удаляем иконку после добавления
-                }
-
-                tvis.item.iImage = imageIndex; // Иконка для невыбранного состояния
-                tvis.item.iSelectedImage = imageIndex; // Иконка для выбранного состояния
-
                 HTREEITEM hItem = TreeView_InsertItem(hTree, &tvis);
-
-                // Рекурсивно добавляем элементы для папок
                 AddItemsToTree(hTree, hItem, fullPath);
             } else {
                 tvis.item.cChildren = 0;
-
-                // Получаем иконку файла
-                SHFILEINFOW sfi = {};
-                SHGetFileInfoW(fullPath.c_str(), FILE_ATTRIBUTE_NORMAL, &sfi, sizeof(sfi), SHGFI_ICON | SHGFI_SMALLICON);
-
-                // Добавляем иконку в список изображений
-                if (sfi.hIcon) {
-                    imageIndex = ImageList_AddIcon(hImageList, sfi.hIcon);
-                    DestroyIcon(sfi.hIcon); // Удаляем иконку после добавления
-                }
-
-                tvis.item.iImage = imageIndex; // Иконка для невыбранного состояния
-                tvis.item.iSelectedImage = imageIndex; // Иконка для выбранного состояния
                 TreeView_InsertItem(hTree, &tvis);
             }
         }
@@ -283,11 +269,55 @@ void CopySelectedFilesToClipboard(HWND hwnd) {
     }
 }
 
+HICON CreatePaddedIcon(HICON hOriginalIcon, int padding) {
+    ICONINFO iconInfo = {};
+    GetIconInfo(hOriginalIcon, &iconInfo);
+
+    BITMAP bmp = {};
+    GetObject(iconInfo.hbmColor, sizeof(BITMAP), &bmp);
+
+    int newWidth = bmp.bmWidth + padding;
+    int height = bmp.bmHeight;
+
+    HBITMAP hNewBitmap = CreateBitmap(newWidth, height, bmp.bmPlanes, bmp.bmBitsPixel, NULL);
+    HBITMAP hNewMask = CreateBitmap(newWidth, height, bmp.bmPlanes, bmp.bmBitsPixel, NULL);
+
+    HDC hDC = GetDC(NULL);
+    HDC hMemDC = CreateCompatibleDC(hDC);
+    HBITMAP hOldBitmap = (HBITMAP)SelectObject(hMemDC, hNewBitmap);
+
+    // Fill the new bitmap with transparency
+    BLENDFUNCTION bf = {AC_SRC_OVER, 0, 0, AC_SRC_ALPHA};
+    GdiAlphaBlend(hMemDC, 0, 0, newWidth, height, hMemDC, 0, 0, 0, 0, bf);
+
+    // Draw the original icon at the offset position
+    DrawIconEx(hMemDC, padding, 0, hOriginalIcon, bmp.bmWidth, height, 0, NULL, DI_NORMAL);
+
+    SelectObject(hMemDC, hOldBitmap);
+    DeleteDC(hMemDC);
+    ReleaseDC(NULL, hDC);
+
+    ICONINFO newIconInfo = {};
+    newIconInfo.fIcon = TRUE;
+    newIconInfo.hbmColor = hNewBitmap;
+    newIconInfo.hbmMask = hNewMask;
+
+    HICON hPaddedIcon = CreateIconIndirect(&newIconInfo);
+
+    // Clean up
+    DeleteObject(iconInfo.hbmColor);
+    DeleteObject(iconInfo.hbmMask);
+    DeleteObject(hNewBitmap);
+    DeleteObject(hNewMask);
+
+    return hPaddedIcon;
+}
+
 LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
     switch (msg) {
         case WM_CREATE: {
             // Create the image list for icons
-            hImageList = ImageList_Create(16, 16, ILC_COLOR32, 1, 1); // Создание списка изображений
+            hImageList = ImageList_Create(24, 16, ILC_COLOR32 | ILC_MASK, 1, 1); // Создание списка изображений
 
             // Create the tree view
             hTreeView = CreateWindowExW(
