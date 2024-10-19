@@ -4,26 +4,37 @@
 #include <vector>
 #include <shlwapi.h>
 #include <tchar.h>
+#include <shlobj.h>
+#include <shellapi.h>
+#include <commdlg.h> // For IFileDialog
 
 #pragma comment(lib, "comctl32.lib")
 #pragma comment(lib, "shlwapi.lib")
+#pragma comment(lib, "shell32.lib")
+#pragma comment(lib, "Ole32.lib") // For COM initialization
 
 HINSTANCE hInst;
 HWND hTreeView;
 HWND hButton;
+HWND hSelectFolderButton;
+HICON hFolderIcon = NULL;
 
+std::wstring basePath;
 std::vector<std::wstring> selectedFiles;
 
 void AddItemsToTree(HWND hTree, HTREEITEM hParent, const std::wstring& path);
-
 LRESULT CALLBACK WndProc(HWND, UINT, WPARAM, LPARAM);
 void CopySelectedFilesToClipboard(HWND hwnd);
+std::wstring SelectFolder(HWND hwnd);
+void CollectCheckedFiles(HWND hTree, HTREEITEM hItem, const std::wstring& path);
 
-int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE, LPWSTR, int nCmdShow)
-{
+int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE, LPWSTR, int nCmdShow) {
     hInst = hInstance;
 
-    INITCOMMONCONTROLSEX icex = { sizeof(icex), ICC_TREEVIEW_CLASSES };
+    // Initialize COM
+    CoInitialize(NULL);
+
+    INITCOMMONCONTROLSEX icex = {sizeof(icex), ICC_TREEVIEW_CLASSES};
     InitCommonControlsEx(&icex);
 
     WNDCLASSW wc = {};
@@ -31,6 +42,7 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE, LPWSTR, int nCmdShow)
     wc.hInstance = hInstance;
     wc.lpszClassName = L"TreeViewApp";
     wc.hCursor = LoadCursor(NULL, IDC_ARROW);
+    wc.hbrBackground = (HBRUSH)(COLOR_WINDOW + 1);
 
     RegisterClassW(&wc);
 
@@ -39,40 +51,68 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE, LPWSTR, int nCmdShow)
         L"TreeViewApp",
         L"File Tree with Checkboxes",
         WS_OVERLAPPEDWINDOW,
-        CW_USEDEFAULT, CW_USEDEFAULT, 600, 400,
+        CW_USEDEFAULT, CW_USEDEFAULT, 600, 450,
         NULL, NULL, hInstance, NULL);
 
-    if (!hwnd)
+    if (!hwnd) {
+        CoUninitialize();
         return 0;
+    }
 
     ShowWindow(hwnd, nCmdShow);
 
     MSG msg = {};
-    while (GetMessageW(&msg, NULL, 0, 0))
-    {
+    while (GetMessageW(&msg, NULL, 0, 0)) {
         TranslateMessage(&msg);
         DispatchMessageW(&msg);
     }
 
+    // Uninitialize COM
+    CoUninitialize();
+
     return (int)msg.wParam;
 }
 
-void InitializeTreeView(HWND hwndParent)
-{
-    hTreeView = CreateWindowExW(WS_EX_CLIENTEDGE, WC_TREEVIEWW, L"",
-        WS_VISIBLE | WS_CHILD | TVS_HASLINES | TVS_LINESATROOT | TVS_HASBUTTONS | TVS_CHECKBOXES,
-        10, 10, 560, 300,
-        hwndParent, (HMENU)1, hInst, NULL);
+std::wstring SelectFolder(HWND hwnd) {
+    std::wstring folderPath;
+    IFileDialog* pfd = NULL;
+    HRESULT hr = CoCreateInstance(CLSID_FileOpenDialog, NULL, CLSCTX_INPROC_SERVER, IID_PPV_ARGS(&pfd));
+    if (SUCCEEDED(hr)) {
+        DWORD dwOptions;
+        hr = pfd->GetOptions(&dwOptions);
+        if (SUCCEEDED(hr)) {
+            hr = pfd->SetOptions(dwOptions | FOS_PICKFOLDERS | FOS_FORCEFILESYSTEM);
+            if (SUCCEEDED(hr)) {
+                // Set the initial folder to basePath
+                IShellItem* psiFolder;
+                hr = SHCreateItemFromParsingName(basePath.c_str(), NULL, IID_PPV_ARGS(&psiFolder));
+                if (SUCCEEDED(hr)) {
+                    pfd->SetFolder(psiFolder);
+                    psiFolder->Release();
+                }
 
-    std::wstring currentPath(MAX_PATH, L'\0');
-    GetCurrentDirectoryW(MAX_PATH, &currentPath[0]);
-    currentPath.resize(wcslen(currentPath.c_str()));
-
-    AddItemsToTree(hTreeView, NULL, currentPath);
+                hr = pfd->Show(hwnd);
+                if (SUCCEEDED(hr)) {
+                    IShellItem* psiResult;
+                    hr = pfd->GetResult(&psiResult);
+                    if (SUCCEEDED(hr)) {
+                        PWSTR pszPath = NULL;
+                        hr = psiResult->GetDisplayName(SIGDN_FILESYSPATH, &pszPath);
+                        if (SUCCEEDED(hr)) {
+                            folderPath = pszPath;
+                            CoTaskMemFree(pszPath);
+                        }
+                        psiResult->Release();
+                    }
+                }
+            }
+        }
+        pfd->Release();
+    }
+    return folderPath;
 }
 
-void AddItemsToTree(HWND hTree, HTREEITEM hParent, const std::wstring& path)
-{
+void AddItemsToTree(HWND hTree, HTREEITEM hParent, const std::wstring& path) {
     WIN32_FIND_DATAW fd;
     HANDLE hFind = INVALID_HANDLE_VALUE;
 
@@ -83,10 +123,8 @@ void AddItemsToTree(HWND hTree, HTREEITEM hParent, const std::wstring& path)
     if (hFind == INVALID_HANDLE_VALUE)
         return;
 
-    do
-    {
-        if (wcscmp(fd.cFileName, L".") != 0 && wcscmp(fd.cFileName, L"..") != 0)
-        {
+    do {
+        if (wcscmp(fd.cFileName, L".") != 0 && wcscmp(fd.cFileName, L"..") != 0) {
             TVINSERTSTRUCTW tvis = {};
             tvis.hParent = hParent;
             tvis.hInsertAfter = TVI_LAST;
@@ -96,15 +134,12 @@ void AddItemsToTree(HWND hTree, HTREEITEM hParent, const std::wstring& path)
 
             std::wstring fullPath = path + L'\\' + fd.cFileName;
 
-            if (fd.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY)
-            {
+            if (fd.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) {
                 tvis.item.cChildren = 1;
                 HTREEITEM hItem = TreeView_InsertItem(hTree, &tvis);
 
                 AddItemsToTree(hTree, hItem, fullPath);
-            }
-            else
-            {
+            } else {
                 tvis.item.cChildren = 0;
                 tvis.item.mask |= TVIF_STATE;
                 tvis.item.stateMask = TVIS_STATEIMAGEMASK;
@@ -117,8 +152,7 @@ void AddItemsToTree(HWND hTree, HTREEITEM hParent, const std::wstring& path)
     FindClose(hFind);
 }
 
-void CollectCheckedFiles(HWND hTree, HTREEITEM hItem, const std::wstring& path)
-{
+void CollectCheckedFiles(HWND hTree, HTREEITEM hItem, const std::wstring& path) {
     TVITEM tvi = {};
     tvi.mask = TVIF_HANDLE | TVIF_STATE | TVIF_TEXT;
     tvi.hItem = hItem;
@@ -138,67 +172,53 @@ void CollectCheckedFiles(HWND hTree, HTREEITEM hItem, const std::wstring& path)
     if (checked == 1) // Checked
     {
         DWORD attr = GetFileAttributesW(fullPath.c_str());
-        if (!(attr & FILE_ATTRIBUTE_DIRECTORY))
-        {
+        if (!(attr & FILE_ATTRIBUTE_DIRECTORY)) {
             selectedFiles.push_back(fullPath);
         }
     }
 
-    // Рекурсивный обход дочерних элементов
     HTREEITEM hChild = TreeView_GetChild(hTree, hItem);
-    while (hChild)
-    {
+    while (hChild) {
         CollectCheckedFiles(hTree, hChild, fullPath);
         hChild = TreeView_GetNextSibling(hTree, hChild);
     }
 }
 
-void CopySelectedFilesToClipboard(HWND hwnd)
-{
+void CopySelectedFilesToClipboard(HWND hwnd) {
     selectedFiles.clear();
 
-    std::wstring currentPath(MAX_PATH, L'\0');
-    GetCurrentDirectoryW(MAX_PATH, &currentPath[0]);
-    currentPath.resize(wcslen(currentPath.c_str()));
-
     HTREEITEM hRoot = TreeView_GetRoot(hTreeView);
-    while (hRoot)
-    {
-        CollectCheckedFiles(hTreeView, hRoot, currentPath);
+    while (hRoot) {
+        CollectCheckedFiles(hTreeView, hRoot, basePath);
         hRoot = TreeView_GetNextSibling(hTreeView, hRoot);
     }
 
-    if (selectedFiles.empty())
-    {
+    if (selectedFiles.empty()) {
         MessageBoxW(hwnd, L"No files selected.", L"Error", MB_OK | MB_ICONERROR);
         return;
     }
 
     std::wstring clipboardText;
 
-    for (const auto& filePath : selectedFiles)
-    {
+    for (const auto& filePath : selectedFiles) {
         clipboardText += L"------------------\r\n";
-        // Получаем относительный путь
-        std::wstring relativePath = L"." + filePath.substr(currentPath.length());
+        // Get relative path
+        std::wstring relativePath = L"." + filePath.substr(basePath.length());
         clipboardText += relativePath + L"\r\n";
         clipboardText += L"------------------\r\n\r\n";
 
-        // Читаем содержимое файла
+        // Read file content
         HANDLE hFile = CreateFileW(filePath.c_str(), GENERIC_READ, FILE_SHARE_READ, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
-        if (hFile != INVALID_HANDLE_VALUE)
-        {
+        if (hFile != INVALID_HANDLE_VALUE) {
             DWORD fileSize = GetFileSize(hFile, NULL);
-            if (fileSize != INVALID_FILE_SIZE)
-            {
+            if (fileSize != INVALID_FILE_SIZE) {
                 std::vector<char> buffer(fileSize + 1, 0);
                 DWORD bytesRead = 0;
                 ReadFile(hFile, buffer.data(), fileSize, &bytesRead, NULL);
-                // Предполагаем, что файл в кодировке UTF-8; при необходимости измените
+                // Assume UTF-8 encoding; adjust if necessary
                 std::wstring fileContent;
                 int len = MultiByteToWideChar(CP_UTF8, 0, buffer.data(), bytesRead, NULL, 0);
-                if (len > 0)
-                {
+                if (len > 0) {
                     fileContent.resize(len);
                     MultiByteToWideChar(CP_UTF8, 0, buffer.data(), bytesRead, &fileContent[0], len);
                 }
@@ -208,15 +228,13 @@ void CopySelectedFilesToClipboard(HWND hwnd)
         }
     }
 
-    // Копируем в буфер обмена
-    if (OpenClipboard(hwnd))
-    {
+    // Copy to clipboard
+    if (OpenClipboard(hwnd)) {
         EmptyClipboard();
 
         size_t dataSize = (clipboardText.length() + 1) * sizeof(wchar_t);
         HGLOBAL hGlobal = GlobalAlloc(GMEM_MOVEABLE, dataSize);
-        if (hGlobal)
-        {
+        if (hGlobal) {
             LPVOID pGlobal = GlobalLock(hGlobal);
             memcpy(pGlobal, clipboardText.c_str(), dataSize);
             GlobalUnlock(hGlobal);
@@ -224,33 +242,84 @@ void CopySelectedFilesToClipboard(HWND hwnd)
             SetClipboardData(CF_UNICODETEXT, hGlobal);
         }
         CloseClipboard();
-    }
-    else
-    {
+    } else {
         MessageBoxW(hwnd, L"Cannot open clipboard.", L"Error", MB_OK | MB_ICONERROR);
     }
 }
 
-LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
-{
-    switch (msg)
-    {
-    case WM_CREATE:
-        InitializeTreeView(hwnd);
-        hButton = CreateWindowW(L"BUTTON", L"Copy", WS_VISIBLE | WS_CHILD | BS_PUSHBUTTON,
-            10, 320, 100, 30, hwnd, (HMENU)2, hInst, NULL);
-        break;
-    case WM_COMMAND:
-        if (LOWORD(wParam) == 2) // Кнопка "Copy"
-        {
-            CopySelectedFilesToClipboard(hwnd);
+LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
+    switch (msg) {
+        case WM_CREATE: {
+            // Create the tree view
+            hTreeView = CreateWindowExW(
+                WS_EX_CLIENTEDGE, WC_TREEVIEWW, L"",
+                WS_VISIBLE | WS_CHILD | TVS_HASLINES | TVS_LINESATROOT | TVS_HASBUTTONS | TVS_CHECKBOXES,
+                0, 0, 600, 320,
+                hwnd, (HMENU)1, hInst, NULL);
+
+            // Create the "Select Folder" button
+            hSelectFolderButton = CreateWindowW(
+                L"BUTTON", NULL, WS_VISIBLE | WS_CHILD | BS_ICON,
+                500, 10, 30, 30, hwnd, (HMENU)3, hInst, NULL);
+
+            SHFILEINFOW sfi = {0};
+            if (SHGetFileInfoW(L"folder", FILE_ATTRIBUTE_DIRECTORY, &sfi, sizeof(sfi), SHGFI_USEFILEATTRIBUTES | SHGFI_ICON | SHGFI_SMALLICON)) {
+                hFolderIcon = sfi.hIcon;
+                SendMessageW(hSelectFolderButton, BM_SETIMAGE, IMAGE_ICON, (LPARAM)hFolderIcon);
+            }
+
+            // Create the "Copy" button
+            hButton = CreateWindowW(L"BUTTON", L"Copy", WS_VISIBLE | WS_CHILD | BS_PUSHBUTTON,
+                                    10, 380, 580, 30, hwnd, (HMENU)2, hInst, NULL);
+
+            // Initialize the tree view with the current directory
+            wchar_t currentPath[MAX_PATH];
+            GetCurrentDirectoryW(MAX_PATH, currentPath);
+
+            basePath = currentPath;
+            AddItemsToTree(hTreeView, NULL, basePath);
+
+            break;
         }
-        break;
-    case WM_DESTROY:
-        PostQuitMessage(0);
-        break;
-    default:
-        return DefWindowProcW(hwnd, msg, wParam, lParam);
+
+        case WM_SIZE: {
+            int width = LOWORD(lParam); // Получаем новую ширину окна
+            int height = HIWORD(lParam); // Получаем новую высоту окна
+
+            // Изменяем размер дерева
+            MoveWindow(hTreeView, 0, 0, width, height - 50, TRUE);
+
+            // Изменяем положение и размер кнопки "Copy"
+            MoveWindow(hButton, 10, height - 40, width - 20, 30, TRUE);
+
+            // Изменяем положение кнопки выбора папки (если нужно)
+            MoveWindow(hSelectFolderButton, width - 50, 10, 30, 30, TRUE);
+
+            break;
+        }
+        case WM_COMMAND:
+            if (LOWORD(wParam) == 2) // "Copy" button
+            {
+                CopySelectedFilesToClipboard(hwnd);
+            } else if (LOWORD(wParam) == 3) // "Select Folder" button
+            {
+                std::wstring selectedPath = SelectFolder(hwnd);
+                if (!selectedPath.empty()) {
+                    // Clear the tree view and add items from the selected folder
+                    TreeView_DeleteAllItems(hTreeView);
+
+                    basePath = selectedPath;
+                    AddItemsToTree(hTreeView, NULL, selectedPath);
+                }
+            }
+            break;
+        case WM_DESTROY:
+            if (hFolderIcon)
+                DestroyIcon(hFolderIcon);
+            PostQuitMessage(0);
+            break;
+        default:
+            return DefWindowProcW(hwnd, msg, wParam, lParam);
     }
     return 0;
 }
