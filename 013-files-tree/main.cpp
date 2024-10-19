@@ -158,8 +158,8 @@ void AddItemsToTree(HWND hTree, HTREEITEM hParent, const std::wstring& path) {
                     DestroyIcon(sfi.hIcon); // Удаляем иконку после добавления
                 }
 
-                tvis.item.iImage = imageIndex;           // Иконка для невыбранного состояния
-                tvis.item.iSelectedImage = imageIndex;   // Иконка для выбранного состояния
+                tvis.item.iImage = imageIndex; // Иконка для невыбранного состояния
+                tvis.item.iSelectedImage = imageIndex; // Иконка для выбранного состояния
 
                 HTREEITEM hItem = TreeView_InsertItem(hTree, &tvis);
 
@@ -178,8 +178,8 @@ void AddItemsToTree(HWND hTree, HTREEITEM hParent, const std::wstring& path) {
                     DestroyIcon(sfi.hIcon); // Удаляем иконку после добавления
                 }
 
-                tvis.item.iImage = imageIndex;           // Иконка для невыбранного состояния
-                tvis.item.iSelectedImage = imageIndex;   // Иконка для выбранного состояния
+                tvis.item.iImage = imageIndex; // Иконка для невыбранного состояния
+                tvis.item.iSelectedImage = imageIndex; // Иконка для выбранного состояния
                 TreeView_InsertItem(hTree, &tvis);
             }
         }
