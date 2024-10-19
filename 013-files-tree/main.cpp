@@ -13,6 +13,10 @@
 #pragma comment(lib, "shell32.lib")
 #pragma comment(lib, "Ole32.lib") // For COM initialization
 
+// #pragma comment(linker,"\"/manifestdependency:type='win32' \
+// name='Microsoft.Windows.Common-Controls' version='6.0.0.0' \
+// processorArchitecture='*' publicKeyToken='6595b64144ccf1df' language='*'\"")
+
 HINSTANCE hInst;
 HWND hTreeView;
 HWND hButton;
@@ -37,14 +41,15 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE, LPWSTR, int nCmdShow) {
     INITCOMMONCONTROLSEX icex = {sizeof(icex), ICC_TREEVIEW_CLASSES};
     InitCommonControlsEx(&icex);
 
-    WNDCLASSW wc = {};
-    wc.lpfnWndProc = WndProc;
-    wc.hInstance = hInstance;
-    wc.lpszClassName = L"TreeViewApp";
-    wc.hCursor = LoadCursor(NULL, IDC_ARROW);
-    wc.hbrBackground = (HBRUSH)(COLOR_WINDOW + 1);
+    WNDCLASSEXW wcex = {sizeof(WNDCLASSEX)};
+    wcex.style = CS_HREDRAW | CS_VREDRAW;
+    wcex.lpfnWndProc = WndProc;
+    wcex.hInstance = hInstance;
+    wcex.lpszClassName = L"TreeViewApp";
+    wcex.hCursor = LoadCursor(NULL, IDC_ARROW);
+    wcex.hbrBackground = (HBRUSH)(COLOR_WINDOW + 1);
 
-    RegisterClassW(&wc);
+    RegisterClassExW(&wcex);
 
     HWND hwnd = CreateWindowExW(
         0,
@@ -60,6 +65,7 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE, LPWSTR, int nCmdShow) {
     }
 
     ShowWindow(hwnd, nCmdShow);
+    UpdateWindow(hwnd);
 
     MSG msg = {};
     while (GetMessageW(&msg, NULL, 0, 0)) {
@@ -253,13 +259,13 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
             // Create the tree view
             hTreeView = CreateWindowExW(
                 WS_EX_CLIENTEDGE, WC_TREEVIEWW, L"",
-                WS_VISIBLE | WS_CHILD | TVS_HASLINES | TVS_LINESATROOT | TVS_HASBUTTONS | TVS_CHECKBOXES,
+                WS_VISIBLE | WS_CHILD | TVS_HASLINES | TVS_LINESATROOT | TVS_HASBUTTONS | TVS_CHECKBOXES | WS_CLIPSIBLINGS,
                 0, 0, 600, 320,
                 hwnd, (HMENU)1, hInst, NULL);
 
             // Create the "Select Folder" button
             hSelectFolderButton = CreateWindowW(
-                L"BUTTON", NULL, WS_VISIBLE | WS_CHILD | BS_ICON,
+                L"BUTTON", NULL, WS_VISIBLE | WS_CHILD | BS_ICON | WS_CLIPSIBLINGS,
                 500, 10, 30, 30, hwnd, (HMENU)3, hInst, NULL);
 
             SHFILEINFOW sfi = {0};
@@ -292,17 +298,21 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
             // Изменяем положение и размер кнопки "Copy"
             MoveWindow(hButton, 10, height - 40, width - 20, 30, TRUE);
 
-            // Изменяем положение кнопки выбора папки (если нужно)
-            MoveWindow(hSelectFolderButton, width - 50, 10, 30, 30, TRUE);
+            // Изменяем положение кнопки выбора папки
+            MoveWindow(hSelectFolderButton, width - 40, 10, 30, 30, TRUE);
+
+            // Обновляем Z-порядок и отображение кнопки выбора папки
+            SetWindowPos(hSelectFolderButton, HWND_TOP, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_SHOWWINDOW);
 
             break;
         }
+
         case WM_COMMAND:
-            if (LOWORD(wParam) == 2) // "Copy" button
-            {
+            if (LOWORD(wParam) == 2) {
+                // "Copy" button
                 CopySelectedFilesToClipboard(hwnd);
-            } else if (LOWORD(wParam) == 3) // "Select Folder" button
-            {
+            } else if (LOWORD(wParam) == 3) {
+                // "Select Folder" button
                 std::wstring selectedPath = SelectFolder(hwnd);
                 if (!selectedPath.empty()) {
                     // Clear the tree view and add items from the selected folder
@@ -313,11 +323,13 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
                 }
             }
             break;
+
         case WM_DESTROY:
             if (hFolderIcon)
                 DestroyIcon(hFolderIcon);
             PostQuitMessage(0);
             break;
+
         default:
             return DefWindowProcW(hwnd, msg, wParam, lParam);
     }
