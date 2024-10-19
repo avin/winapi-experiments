@@ -22,6 +22,7 @@ HWND hTreeView;
 HWND hButton;
 HWND hSelectFolderButton;
 HICON hFolderIcon = NULL;
+HIMAGELIST hImageList = NULL;
 
 std::wstring basePath;
 std::vector<std::wstring> selectedFiles;
@@ -134,22 +135,51 @@ void AddItemsToTree(HWND hTree, HTREEITEM hParent, const std::wstring& path) {
             TVINSERTSTRUCTW tvis = {};
             tvis.hParent = hParent;
             tvis.hInsertAfter = TVI_LAST;
-            tvis.item.mask = TVIF_TEXT | TVIF_CHILDREN;
+            tvis.item.mask = TVIF_TEXT | TVIF_CHILDREN | TVIF_IMAGE | TVIF_SELECTEDIMAGE;
             tvis.item.pszText = fd.cFileName;
             tvis.item.cchTextMax = lstrlenW(fd.cFileName);
 
             std::wstring fullPath = path + L'\\' + fd.cFileName;
 
+            // Переменная для хранения индекса иконки
+            int imageIndex = 0;
+
+            // Если элемент — директория, назначаем иконку папки
             if (fd.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) {
                 tvis.item.cChildren = 1;
+
+                // Получаем иконку папки
+                SHFILEINFOW sfi = {};
+                SHGetFileInfoW(fullPath.c_str(), FILE_ATTRIBUTE_DIRECTORY, &sfi, sizeof(sfi), SHGFI_ICON | SHGFI_SMALLICON);
+
+                // Добавляем иконку в список изображений, если она не была добавлена ранее
+                if (sfi.hIcon) {
+                    imageIndex = ImageList_AddIcon(hImageList, sfi.hIcon);
+                    DestroyIcon(sfi.hIcon); // Удаляем иконку после добавления
+                }
+
+                tvis.item.iImage = imageIndex;           // Иконка для невыбранного состояния
+                tvis.item.iSelectedImage = imageIndex;   // Иконка для выбранного состояния
+
                 HTREEITEM hItem = TreeView_InsertItem(hTree, &tvis);
 
+                // Рекурсивно добавляем элементы для папок
                 AddItemsToTree(hTree, hItem, fullPath);
             } else {
                 tvis.item.cChildren = 0;
-                tvis.item.mask |= TVIF_STATE;
-                tvis.item.stateMask = TVIS_STATEIMAGEMASK;
-                tvis.item.state = INDEXTOSTATEIMAGEMASK(1); // Unchecked
+
+                // Получаем иконку файла
+                SHFILEINFOW sfi = {};
+                SHGetFileInfoW(fullPath.c_str(), FILE_ATTRIBUTE_NORMAL, &sfi, sizeof(sfi), SHGFI_ICON | SHGFI_SMALLICON);
+
+                // Добавляем иконку в список изображений
+                if (sfi.hIcon) {
+                    imageIndex = ImageList_AddIcon(hImageList, sfi.hIcon);
+                    DestroyIcon(sfi.hIcon); // Удаляем иконку после добавления
+                }
+
+                tvis.item.iImage = imageIndex;           // Иконка для невыбранного состояния
+                tvis.item.iSelectedImage = imageIndex;   // Иконка для выбранного состояния
                 TreeView_InsertItem(hTree, &tvis);
             }
         }
@@ -256,12 +286,17 @@ void CopySelectedFilesToClipboard(HWND hwnd) {
 LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
     switch (msg) {
         case WM_CREATE: {
+            // Create the image list for icons
+            hImageList = ImageList_Create(16, 16, ILC_COLOR32, 1, 1); // Создание списка изображений
+
             // Create the tree view
             hTreeView = CreateWindowExW(
                 WS_EX_CLIENTEDGE, WC_TREEVIEWW, L"",
                 WS_VISIBLE | WS_CHILD | TVS_HASLINES | TVS_LINESATROOT | TVS_HASBUTTONS | TVS_CHECKBOXES | WS_CLIPSIBLINGS,
                 0, 0, 600, 320,
                 hwnd, (HMENU)1, hInst, NULL);
+
+            TreeView_SetImageList(hTreeView, hImageList, TVSIL_NORMAL); // Привязка списка к дереву
 
             // Create the "Select Folder" button
             hSelectFolderButton = CreateWindowW(
@@ -327,6 +362,8 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
         case WM_DESTROY:
             if (hFolderIcon)
                 DestroyIcon(hFolderIcon);
+            if (hImageList)
+                ImageList_Destroy(hImageList); // Уничтожаем список изображений
             PostQuitMessage(0);
             break;
 
