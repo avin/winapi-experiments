@@ -151,7 +151,7 @@ void AddItemsToTree(HWND hTree, HTREEITEM hParent, const std::wstring& path) {
 
             // Add padding to the icon
             if (sfi.hIcon) {
-                HICON hPaddedIcon = CreatePaddedIcon(sfi.hIcon, 8); // Adjust padding as needed
+                HICON hPaddedIcon = CreatePaddedIcon(sfi.hIcon, 4); // Adjust padding as needed
                 imageIndex = ImageList_AddIcon(hImageList, hPaddedIcon);
                 DestroyIcon(sfi.hIcon);
                 DestroyIcon(hPaddedIcon);
@@ -244,7 +244,7 @@ void CopySelectedFilesToClipboard(HWND hwnd) {
                     fileContent.resize(len);
                     MultiByteToWideChar(CP_UTF8, 0, buffer.data(), bytesRead, &fileContent[0], len);
                 }
-                clipboardText += fileContent + L"\r\n";
+                clipboardText += fileContent + L"\r\n\r\n\r\n\r\n";
             }
             CloseHandle(hFile);
         }
@@ -317,7 +317,7 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
     switch (msg) {
         case WM_CREATE: {
             // Create the image list for icons
-            hImageList = ImageList_Create(24, 16, ILC_COLOR32 | ILC_MASK, 1, 1); // Создание списка изображений
+            hImageList = ImageList_Create(20, 16, ILC_COLOR32 | ILC_MASK, 1, 1); // Создание списка изображений
 
             // Create the tree view
             hTreeView = CreateWindowExW(
