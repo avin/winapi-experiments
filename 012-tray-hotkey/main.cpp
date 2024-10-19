@@ -4,6 +4,7 @@
 #define ID_TRAY_APP_ICON    1001
 #define WM_TRAYICON         (WM_USER + 1)
 #define HOTKEY_ID           1
+#define ID_TRAY_EXIT        2001 // Идентификатор пункта "Выход" в меню
 
 HINSTANCE hInst;
 NOTIFYICONDATAW nid = {0};
@@ -17,21 +18,20 @@ DWORD WINAPI ShowMessageBoxThread(LPVOID lpParam) {
 
         // Присоединяем потоки ввода
         AttachThreadInput(mainThreadId, currentThreadId, TRUE);
-        
+
         // Делаем главное окно активным и на переднем плане
         SetForegroundWindow(hMainWnd);
-        SetFocus(hMainWnd);  // Прямо устанавливаем фокус на главное окно
-        
+        SetFocus(hMainWnd); // Прямо устанавливаем фокус на главное окно
+
         // Отключаем связь потоков ввода
         AttachThreadInput(mainThreadId, currentThreadId, FALSE);
     }
 
     // Выводим MessageBox на передний план с фокусом
     MessageBoxW(NULL, L"Win + U Pressed!", L"Hotkey", MB_OK | MB_TOPMOST | MB_SETFOREGROUND);
-    
+
     return 0;
 }
-
 
 LRESULT CALLBACK KeyboardProc(int nCode, WPARAM wParam, LPARAM lParam) {
     if (nCode == HC_ACTION) {
@@ -41,7 +41,6 @@ LRESULT CALLBACK KeyboardProc(int nCode, WPARAM wParam, LPARAM lParam) {
         if ((pKeyBoard->vkCode == 'U') && (GetAsyncKeyState(VK_LWIN) & 0x8000)) {
             if (wParam == WM_KEYDOWN) {
                 // Выводим сообщение при нажатии комбинации Win + U через тред, чтобы не блокировать этот поток, иначе хук не заблокирует оригинальный хоткей.
-
                 HANDLE hThread = CreateThread(NULL, 0, ShowMessageBoxThread, NULL, 0, NULL);
                 if (hThread != NULL) {
                     CloseHandle(hThread); // Закрываем дескриптор потока
@@ -52,6 +51,47 @@ LRESULT CALLBACK KeyboardProc(int nCode, WPARAM wParam, LPARAM lParam) {
         }
     }
     return CallNextHookEx(hKeyboardHook, nCode, wParam, lParam);
+}
+
+void ShowTrayMenu(HWND hwnd) {
+    // Создаем меню
+    HMENU hMenu = CreatePopupMenu();
+    AppendMenuW(hMenu, MF_STRING, ID_TRAY_EXIT, L"Exit");
+
+    // Получаем координаты курсора
+    POINT pt;
+    GetCursorPos(&pt);
+
+    // Отображаем контекстное меню
+    SetForegroundWindow(hwnd); // Необходимо для корректного отображения меню
+
+    // Adjust the alignment flags based on the screen position
+    UINT uFlags = TPM_RIGHTBUTTON;
+
+    APPBARDATA appBarData = {};
+    appBarData.cbSize = sizeof(APPBARDATA);
+
+    // Запрашиваем информацию о панели задач
+    if (SHAppBarMessage(ABM_GETTASKBARPOS, &appBarData)) {
+        switch (appBarData.uEdge) {
+            case ABE_TOP:
+                uFlags |= TPM_LEFTALIGN | TPM_TOPALIGN;
+                break;
+            case ABE_RIGHT:
+                uFlags |= TPM_RIGHTALIGN | TPM_TOPALIGN;
+            case ABE_LEFT:
+                uFlags |= TPM_LEFTALIGN | TPM_TOPALIGN;
+                break;
+            default:
+                uFlags |= TPM_LEFTALIGN | TPM_BOTTOMALIGN;
+                break;
+        }
+    }
+
+    TrackPopupMenu(hMenu, uFlags, pt.x, pt.y, 0, hwnd, NULL);
+
+    // Удаляем меню после использования
+    DestroyMenu(hMenu);
 }
 
 void AddTrayIcon(HWND hwnd) {
@@ -83,8 +123,17 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
             break;
 
         case WM_TRAYICON:
-            if (lParam == WM_LBUTTONUP || lParam == WM_RBUTTONUP) {
-                MessageBoxW(hwnd, L"Tray Icon Clicked", L"Info", MB_OK);
+            // Проверяем, что нажата правая кнопка мыши
+            if (LOWORD(lParam) == WM_RBUTTONUP) {
+                ShowTrayMenu(hwnd); // Показываем меню при правом клике
+            }
+            break;
+
+        case WM_COMMAND:
+            switch (LOWORD(wParam)) {
+                case ID_TRAY_EXIT:
+                    DestroyWindow(hwnd);
+                    break;
             }
             break;
 
