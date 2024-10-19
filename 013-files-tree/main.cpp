@@ -17,11 +17,11 @@
 name='Microsoft.Windows.Common-Controls' version='6.0.0.0' \
 processorArchitecture='*' publicKeyToken='6595b64144ccf1df' language='*'\"")
 
+#define IDM_SELECT_FOLDER 4
+
 HINSTANCE hInst;
 HWND hTreeView;
 HWND hButton;
-HWND hSelectFolderButton;
-HICON hFolderIcon = NULL;
 HIMAGELIST hImageList = NULL;
 
 std::wstring basePath;
@@ -298,16 +298,15 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
 
             TreeView_SetImageList(hTreeView, hImageList, TVSIL_NORMAL); // Привязка списка к дереву
 
-            // Create the "Select Folder" button
-            hSelectFolderButton = CreateWindowW(
-                L"BUTTON", NULL, WS_VISIBLE | WS_CHILD | BS_ICON | WS_CLIPSIBLINGS,
-                500, 10, 30, 30, hwnd, (HMENU)3, hInst, NULL);
+            // Создаём меню
+            HMENU hMenuBar = CreateMenu();
+            HMENU hFileMenu = CreateMenu();
 
-            SHFILEINFOW sfi = {0};
-            if (SHGetFileInfoW(L"folder", FILE_ATTRIBUTE_DIRECTORY, &sfi, sizeof(sfi), SHGFI_USEFILEATTRIBUTES | SHGFI_ICON | SHGFI_SMALLICON)) {
-                hFolderIcon = sfi.hIcon;
-                SendMessageW(hSelectFolderButton, BM_SETIMAGE, IMAGE_ICON, (LPARAM)hFolderIcon);
-            }
+            AppendMenuW(hFileMenu, MF_STRING, IDM_SELECT_FOLDER, L"Select folder...");
+
+            AppendMenuW(hMenuBar, MF_POPUP, (UINT_PTR)hFileMenu, L"File");
+
+            SetMenu(hwnd, hMenuBar);
 
             // Create the "Copy" button
             hButton = CreateWindowW(L"BUTTON", L"Copy", WS_VISIBLE | WS_CHILD | BS_PUSHBUTTON,
@@ -333,12 +332,6 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
             // Изменяем положение и размер кнопки "Copy"
             MoveWindow(hButton, 10, height - 40, width - 20, 30, TRUE);
 
-            // Изменяем положение кнопки выбора папки
-            MoveWindow(hSelectFolderButton, width - 40, 10, 30, 30, TRUE);
-
-            // Обновляем Z-порядок и отображение кнопки выбора папки
-            SetWindowPos(hSelectFolderButton, HWND_TOP, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_SHOWWINDOW);
-
             break;
         }
 
@@ -346,8 +339,8 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
             if (LOWORD(wParam) == 2) {
                 // "Copy" button
                 CopySelectedFilesToClipboard(hwnd);
-            } else if (LOWORD(wParam) == 3) {
-                // "Select Folder" button
+            } else if (LOWORD(wParam) == IDM_SELECT_FOLDER) {
+                // "Select Folder" menu item
                 std::wstring selectedPath = SelectFolder(hwnd);
                 if (!selectedPath.empty()) {
                     // Clear the tree view and add items from the selected folder
@@ -360,8 +353,6 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
             break;
 
         case WM_DESTROY:
-            if (hFolderIcon)
-                DestroyIcon(hFolderIcon);
             if (hImageList)
                 ImageList_Destroy(hImageList); // Уничтожаем список изображений
             PostQuitMessage(0);
