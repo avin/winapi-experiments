@@ -34,6 +34,8 @@ Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "012-tray-hotkey", "012-tray
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "013-files-tree", "013-files-tree\013-files-tree.vcxproj", "{12A3F41E-6749-4234-AC9B-074FC2A8C706}"
 EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "014-gdi-plus", "014-gdi-plus\014-gdi-plus.vcxproj", "{663C221C-C3E4-4DB4-885D-95E5D7F5B280}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|x64 = Debug|x64
@@ -146,6 +148,14 @@ Global
 		{12A3F41E-6749-4234-AC9B-074FC2A8C706}.Release|x64.Build.0 = Release|x64
 		{12A3F41E-6749-4234-AC9B-074FC2A8C706}.Release|x86.ActiveCfg = Release|Win32
 		{12A3F41E-6749-4234-AC9B-074FC2A8C706}.Release|x86.Build.0 = Release|Win32
+		{663C221C-C3E4-4DB4-885D-95E5D7F5B280}.Debug|x64.ActiveCfg = Debug|x64
+		{663C221C-C3E4-4DB4-885D-95E5D7F5B280}.Debug|x64.Build.0 = Debug|x64
+		{663C221C-C3E4-4DB4-885D-95E5D7F5B280}.Debug|x86.ActiveCfg = Debug|Win32
+		{663C221C-C3E4-4DB4-885D-95E5D7F5B280}.Debug|x86.Build.0 = Debug|Win32
+		{663C221C-C3E4-4DB4-885D-95E5D7F5B280}.Release|x64.ActiveCfg = Release|x64
+		{663C221C-C3E4-4DB4-885D-95E5D7F5B280}.Release|x64.Build.0 = Release|x64
+		{663C221C-C3E4-4DB4-885D-95E5D7F5B280}.Release|x86.ActiveCfg = Release|Win32
+		{663C221C-C3E4-4DB4-885D-95E5D7F5B280}.Release|x86.Build.0 = Release|Win32
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
