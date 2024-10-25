@@ -29,54 +29,44 @@ BOOL CALLBACK MyMagImageScalingCallback(HWND hwnd, void* srcdata, MAGIMAGEHEADER
 
     // Проходим по каждому пикселю и преобразуем его в оттенок серого
     for (int y = 0; y < (int)srcheader.height; y++) {
-        for (int x = 0; x < (int)srcheader.width; x++) {
+        for (int x = 0; x < (int)srcheader.width - 1; x++) {
             int index = (y * srcheader.stride) + (x * 4);
+            int shiftedIndex = index + 4; // Пиксель справа
 
-            // Получаем компоненты текущего пикселя
-            BYTE blue = srcPixels[index];
-            BYTE green = srcPixels[index + 1];
-            BYTE red = srcPixels[index + 2];
+            // Получаем компоненты текущего и смещённого пикселей
+            BYTE blue1 = srcPixels[index];
+            BYTE green1 = srcPixels[index + 1];
+            BYTE red1 = srcPixels[index + 2];
 
-            bool hasDarkNeighbor = false;
+            BYTE blue2 = srcPixels[shiftedIndex];
+            BYTE green2 = srcPixels[shiftedIndex + 1];
+            BYTE red2 = srcPixels[shiftedIndex + 2];
 
-            // Проверяем соседние пиксели (если они в пределах изображения)
-            int offsets[4][2] = {{-1, 0}, {1, 0}, {0, -1}, {0, 1}};
-            for (auto offset : offsets) {
-                int nx = x + offset[0];
-                int ny = y + offset[1];
-                if (nx >= 0 && nx < (int)srcheader.width && ny >= 0 && ny < (int)srcheader.height) {
-                    int neighborIndex = (ny * srcheader.stride) + (nx * 4);
-                    BYTE nBlue = srcPixels[neighborIndex];
-                    BYTE nGreen = srcPixels[neighborIndex + 1];
-                    BYTE nRed = srcPixels[neighborIndex + 2];
+            // Рассчитываем яркость обоих пикселей
+            BYTE brightness1 = (BYTE)(0.299 * red1 + 0.587 * green1 + 0.114 * blue1);
+            BYTE brightness2 = (BYTE)(0.299 * red2 + 0.587 * green2 + 0.114 * blue2);
 
-                    // Рассчитываем яркость соседнего пикселя
-                    BYTE neighborBrightness = (BYTE)(0.299 * nRed + 0.587 * nGreen + 0.114 * nBlue);
-
-                    // Проверяем, темнее ли среднее значение
-                    if (neighborBrightness < 128) {
-                        hasDarkNeighbor = true;
-                        break;
-                    }
-                }
-            }
-
-            // Если есть темный соседний пиксель, делаем текущий пиксель черным
-            if (hasDarkNeighbor) {
-                destPixels[index] = 0;       // Blue
-                destPixels[index + 1] = 0;   // Green
-                destPixels[index + 2] = 0;   // Red
+            // Сохраняем более тёмный пиксель в итоговый кадр
+            if (brightness1 < brightness2) {
+                destPixels[index] = blue1;
+                destPixels[index + 1] = green1;
+                destPixels[index + 2] = red1;
+                destPixels[index + 3] = srcPixels[index + 3]; // Alpha
             } else {
-                // Иначе, сохраняем оригинальный оттенок серого
-                BYTE gray = (BYTE)(0.299 * red + 0.587 * green + 0.114 * blue);
-                destPixels[index] = gray;
-                destPixels[index + 1] = gray;
-                destPixels[index + 2] = gray;
+                destPixels[index] = blue2;
+                destPixels[index + 1] = green2;
+                destPixels[index + 2] = red2;
+                destPixels[index + 3] = srcPixels[shiftedIndex + 3]; // Alpha
             }
-            destPixels[index + 3] = srcPixels[index + 3]; // Alpha
         }
-    }
 
+        // Обрабатываем крайний правый пиксель, который не имеет смещённого соседа справа
+        int lastIndex = (y * srcheader.stride) + ((int)srcheader.width - 1) * 4;
+        destPixels[lastIndex] = srcPixels[lastIndex];
+        destPixels[lastIndex + 1] = srcPixels[lastIndex + 1];
+        destPixels[lastIndex + 2] = srcPixels[lastIndex + 2];
+        destPixels[lastIndex + 3] = srcPixels[lastIndex + 3]; // Alpha
+    }
 
     return TRUE;
 }
@@ -97,10 +87,10 @@ int APIENTRY wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance,
 
     // Создаем основное окно
     HWND hWnd = CreateWindowEx(
-        WS_EX_TOPMOST ,
+        WS_EX_TOPMOST,
         szWindowClass,
         szTitle,
-        WS_POPUP, // WS_OVERLAPPEDWINDOW, // WS_POPUP, // Без заголовка и границ
+        WS_POPUP | WS_THICKFRAME, // WS_OVERLAPPEDWINDOW, // WS_POPUP, // Без заголовка и границ
         CW_USEDEFAULT, CW_USEDEFAULT, 800, 600,
         NULL,
         NULL,
@@ -124,8 +114,8 @@ int APIENTRY wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance,
 
     // Создаем дочернее окно увеличения
     hMagWnd = CreateWindow(WC_MAGNIFIER, L"MagnifierWindow",
-                           WS_CHILD | MS_SHOWMAGNIFIEDCURSOR,
-                           2, 2, 800-4, 600-4, hWnd, NULL, hInstance, NULL);
+                           WS_CHILD, // | MS_SHOWMAGNIFIEDCURSOR
+                           0, 0, 800, 600, hWnd, NULL, hInstance, NULL);
 
     if (!hMagWnd) {
         MessageBox(NULL, L"Не удалось создать окно увеличения", L"Ошибка", MB_ICONERROR);
@@ -213,20 +203,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam) 
             PAINTSTRUCT ps;
             HDC hdc = BeginPaint(hWnd, &ps);
 
-            // Устанавливаем черный цвет для рамки
-            HPEN hPen = CreatePen(PS_SOLID, 5, RGB(0, 0, 0)); // Толщина рамки 5 пикселей
-            HPEN hOldPen = (HPEN)SelectObject(hdc, hPen);
-
-            // Получаем размер клиентской области
-            RECT rcClient;
-            GetClientRect(hWnd, &rcClient);
-
-            // Рисуем прямоугольную рамку вокруг окна
-            Rectangle(hdc, rcClient.left, rcClient.top, rcClient.right, rcClient.bottom);
-
-            // Восстанавливаем старую кисть и удаляем созданные ресурсы
-            SelectObject(hdc, hOldPen);
-            DeleteObject(hPen);
+            //
 
             EndPaint(hWnd, &ps);
         }
@@ -241,7 +218,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam) 
             // Изменяем размер окна увеличения при изменении размера основного окна
             RECT rcClient;
             GetClientRect(hWnd, &rcClient);
-            MoveWindow(hMagWnd, 2, 2, rcClient.right - rcClient.left-4, rcClient.bottom - rcClient.top-4, TRUE);
+            MoveWindow(hMagWnd, 0, 0, rcClient.right - rcClient.left, rcClient.bottom - rcClient.top, TRUE);
         }
         break;
         case WM_LBUTTONDOWN: {
