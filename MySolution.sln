@@ -40,6 +40,8 @@ Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "015-direct2d", "015-direct2
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "016-window-spy", "016-window-spy\016-window-spy.vcxproj", "{386E8236-DF38-4B62-8679-07504464FA12}"
 EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "017-window-filter", "017-window-filter\017-window-filter.vcxproj", "{AF209973-6AF5-45FD-A01A-592914E132E7}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|x64 = Debug|x64
@@ -176,6 +178,14 @@ Global
 		{386E8236-DF38-4B62-8679-07504464FA12}.Release|x64.Build.0 = Release|x64
 		{386E8236-DF38-4B62-8679-07504464FA12}.Release|x86.ActiveCfg = Release|Win32
 		{386E8236-DF38-4B62-8679-07504464FA12}.Release|x86.Build.0 = Release|Win32
+		{AF209973-6AF5-45FD-A01A-592914E132E7}.Debug|x64.ActiveCfg = Debug|x64
+		{AF209973-6AF5-45FD-A01A-592914E132E7}.Debug|x64.Build.0 = Debug|x64
+		{AF209973-6AF5-45FD-A01A-592914E132E7}.Debug|x86.ActiveCfg = Debug|Win32
+		{AF209973-6AF5-45FD-A01A-592914E132E7}.Debug|x86.Build.0 = Debug|Win32
+		{AF209973-6AF5-45FD-A01A-592914E132E7}.Release|x64.ActiveCfg = Release|x64
+		{AF209973-6AF5-45FD-A01A-592914E132E7}.Release|x64.Build.0 = Release|x64
+		{AF209973-6AF5-45FD-A01A-592914E132E7}.Release|x86.ActiveCfg = Release|Win32
+		{AF209973-6AF5-45FD-A01A-592914E132E7}.Release|x86.Build.0 = Release|Win32
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
