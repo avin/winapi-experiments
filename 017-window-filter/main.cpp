@@ -15,6 +15,48 @@ POINT ptLast;
 
 HWND hMagWnd;
 
+// Функция обратного вызова для обработки изображения
+BOOL CALLBACK MyMagImageScalingCallback(HWND hwnd, void* srcdata, MAGIMAGEHEADER srcheader,
+                                        void* destdata, MAGIMAGEHEADER destheader, RECT unclipped, RECT clipped, HRGN dirty)
+{
+    // Проверяем, что размеры исходного и конечного изображения совпадают
+    if (srcheader.width != destheader.width || srcheader.height != destheader.height)
+    {
+        return FALSE;
+    }
+
+    // Получаем указатели на данные пикселей
+    BYTE* srcPixels = (BYTE*)srcdata;
+    BYTE* destPixels = (BYTE*)destdata;
+
+    // Проходим по каждому пикселю и преобразуем его в оттенок серого
+    for (int y = 0; y < (int)srcheader.height; y++)
+    {
+        for (int x = 0; x < (int)srcheader.width; x++)
+        {
+            // Индекс пикселя
+            int index = (y * srcheader.stride) + (x * 4);
+
+            // Получаем компоненты цвета
+            BYTE blue = srcPixels[index];
+            BYTE green = srcPixels[index + 1];
+            BYTE red = srcPixels[index + 2];
+            BYTE alpha = srcPixels[index + 3];
+
+            // Вычисляем яркость (по формуле: Y = 0.299 * R + 0.587 * G + 0.114 * B)
+            BYTE gray = (BYTE)(0.299 * red + 0.587 * green + 0.114 * blue);
+
+            // Устанавливаем новые значения пикселя
+            destPixels[index] = gray;        // Blue
+            destPixels[index + 1] = gray;    // Green
+            destPixels[index + 2] = gray;    // Red
+            destPixels[index + 3] = alpha;   // Alpha
+        }
+    }
+
+    return TRUE;
+}
+
 int APIENTRY wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance,
                       LPWSTR lpCmdLine, int nCmdShow)
 {
@@ -73,7 +115,7 @@ int APIENTRY wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance,
     }
 
     // Устанавливаем коэффициент увеличения 1.0 (без увеличения)
-    MAGTRANSFORM magTransform = {0};
+    MAGTRANSFORM magTransform = { 0 };
     magTransform.v[0][0] = 1.0f;
     magTransform.v[1][1] = 1.0f;
     magTransform.v[2][2] = 1.0f;
@@ -81,6 +123,9 @@ int APIENTRY wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance,
 
     // Устанавливаем фильтр для исключения нашего окна из захвата
     MagSetWindowFilterList(hMagWnd, MW_FILTERMODE_EXCLUDE, 1, &hWnd);
+
+    // Устанавливаем функцию обратного вызова для обработки изображения
+    MagSetImageScalingCallback(hMagWnd, MyMagImageScalingCallback);
 
     // Показываем окна
     ShowWindow(hWnd, nCmdShow);
@@ -103,7 +148,7 @@ int APIENTRY wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance,
     MagUninitialize();
     CoUninitialize();
 
-    return (int) msg.wParam;
+    return (int)msg.wParam;
 }
 
 void UpdateMagWindow(HWND hWnd)
