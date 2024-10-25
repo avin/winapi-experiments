@@ -17,11 +17,9 @@ HWND hMagWnd;
 
 // Функция обратного вызова для обработки изображения
 BOOL CALLBACK MyMagImageScalingCallback(HWND hwnd, void* srcdata, MAGIMAGEHEADER srcheader,
-                                        void* destdata, MAGIMAGEHEADER destheader, RECT unclipped, RECT clipped, HRGN dirty)
-{
+                                        void* destdata, MAGIMAGEHEADER destheader, RECT unclipped, RECT clipped, HRGN dirty) {
     // Проверяем, что размеры исходного и конечного изображения совпадают
-    if (srcheader.width != destheader.width || srcheader.height != destheader.height)
-    {
+    if (srcheader.width != destheader.width || srcheader.height != destheader.height) {
         return FALSE;
     }
 
@@ -30,15 +28,13 @@ BOOL CALLBACK MyMagImageScalingCallback(HWND hwnd, void* srcdata, MAGIMAGEHEADER
     BYTE* destPixels = (BYTE*)destdata;
 
     // Проходим по каждому пикселю и преобразуем его в оттенок серого
-    for (int y = 0; y < (int)srcheader.height; y++)
-    {
-        for (int x = 0; x < (int)srcheader.width; x++)
-        {
+    for (int y = 0; y < (int)srcheader.height; y++) {
+        for (int x = 0; x < (int)srcheader.width; x++) {
             // Индекс пикселя
             int index = (y * srcheader.stride) + (x * 4);
 
             // Получаем компоненты цвета
-            BYTE blue = srcPixels[index];
+            BYTE blue = srcPixels[index] / 2; // TODO <<<
             BYTE green = srcPixels[index + 1];
             BYTE red = srcPixels[index + 2];
             BYTE alpha = srcPixels[index + 3];
@@ -47,10 +43,10 @@ BOOL CALLBACK MyMagImageScalingCallback(HWND hwnd, void* srcdata, MAGIMAGEHEADER
             BYTE gray = (BYTE)(0.299 * red + 0.587 * green + 0.114 * blue);
 
             // Устанавливаем новые значения пикселя
-            destPixels[index] = gray;        // Blue
-            destPixels[index + 1] = gray;    // Green
-            destPixels[index + 2] = gray;    // Red
-            destPixels[index + 3] = alpha;   // Alpha
+            destPixels[index] = gray; // Blue
+            destPixels[index + 1] = gray; // Green
+            destPixels[index + 2] = gray; // Red
+            destPixels[index + 3] = alpha; // Alpha
         }
     }
 
@@ -58,35 +54,33 @@ BOOL CALLBACK MyMagImageScalingCallback(HWND hwnd, void* srcdata, MAGIMAGEHEADER
 }
 
 int APIENTRY wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance,
-                      LPWSTR lpCmdLine, int nCmdShow)
-{
+                      LPWSTR lpCmdLine, int nCmdShow) {
     // Инициализируем библиотеку COM
     CoInitialize(NULL);
 
     WNDCLASS wc = {};
-    wc.lpfnWndProc   = WndProc;
-    wc.hInstance     = hInstance;
+    wc.lpfnWndProc = WndProc;
+    wc.hInstance = hInstance;
     wc.lpszClassName = szWindowClass;
-    wc.hCursor       = LoadCursor(NULL, IDC_ARROW);
+    wc.hCursor = LoadCursor(NULL, IDC_ARROW);
     wc.hbrBackground = NULL; // Не используем фон
 
     RegisterClass(&wc);
 
     // Создаем основное окно
     HWND hWnd = CreateWindowEx(
-        WS_EX_TOPMOST | WS_EX_LAYERED,
+        WS_EX_TOPMOST ,
         szWindowClass,
         szTitle,
-        WS_POPUP, // Без заголовка и границ
+        WS_POPUP, // WS_OVERLAPPEDWINDOW, // WS_POPUP, // Без заголовка и границ
         CW_USEDEFAULT, CW_USEDEFAULT, 800, 600,
         NULL,
         NULL,
         hInstance,
         NULL
-    );
+        );
 
-    if (!hWnd)
-    {
+    if (!hWnd) {
         CoUninitialize();
         return FALSE;
     }
@@ -94,8 +88,7 @@ int APIENTRY wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance,
     hInst = hInstance;
 
     // Инициализируем Magnification API
-    if (!MagInitialize())
-    {
+    if (!MagInitialize()) {
         MessageBox(NULL, L"Не удалось инициализировать Magnification API", L"Ошибка", MB_ICONERROR);
         CoUninitialize();
         return FALSE;
@@ -103,11 +96,10 @@ int APIENTRY wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance,
 
     // Создаем дочернее окно увеличения
     hMagWnd = CreateWindow(WC_MAGNIFIER, L"MagnifierWindow",
-        WS_CHILD | MS_SHOWMAGNIFIEDCURSOR,
-        0, 0, 800, 600, hWnd, NULL, hInstance, NULL);
+                           WS_CHILD | MS_SHOWMAGNIFIEDCURSOR,
+                           2, 2, 800-4, 600-4, hWnd, NULL, hInstance, NULL);
 
-    if (!hMagWnd)
-    {
+    if (!hMagWnd) {
         MessageBox(NULL, L"Не удалось создать окно увеличения", L"Ошибка", MB_ICONERROR);
         MagUninitialize();
         CoUninitialize();
@@ -115,7 +107,7 @@ int APIENTRY wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance,
     }
 
     // Устанавливаем коэффициент увеличения 1.0 (без увеличения)
-    MAGTRANSFORM magTransform = { 0 };
+    MAGTRANSFORM magTransform = {0};
     magTransform.v[0][0] = 1.0f;
     magTransform.v[1][1] = 1.0f;
     magTransform.v[2][2] = 1.0f;
@@ -135,11 +127,10 @@ int APIENTRY wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance,
     UpdateWindow(hMagWnd);
 
     // Устанавливаем таймер для обновления области источника
-    SetTimer(hWnd, 1, 16, NULL); // Обновление ~60 FPS
+    SetTimer(hWnd, 1, 30, NULL); // Обновление ~XX FPS
 
     MSG msg = {};
-    while (GetMessage(&msg, NULL, 0, 0))
-    {
+    while (GetMessage(&msg, NULL, 0, 0)) {
         TranslateMessage(&msg);
         DispatchMessage(&msg);
     }
@@ -151,8 +142,7 @@ int APIENTRY wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance,
     return (int)msg.wParam;
 }
 
-void UpdateMagWindow(HWND hWnd)
-{
+void UpdateMagWindow(HWND hWnd) {
     RECT rcClient;
     GetClientRect(hWnd, &rcClient);
 
@@ -180,45 +170,61 @@ void UpdateMagWindow(HWND hWnd)
     InvalidateRect(hMagWnd, NULL, TRUE);
 }
 
-LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
-{
+LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam) {
     static HMENU hMenu;
 
-    switch (message)
-    {
-    case WM_CREATE:
-        {
+    switch (message) {
+        case WM_CREATE: {
             // Создаем контекстное меню
             hMenu = CreatePopupMenu();
-            AppendMenu(hMenu, MF_STRING, 1, L"Выйти");
+            AppendMenu(hMenu, MF_STRING, 1, L"Exit");
         }
         break;
-    case WM_TIMER:
-        {
+
+        case WM_PAINT: {
+            PAINTSTRUCT ps;
+            HDC hdc = BeginPaint(hWnd, &ps);
+
+            // Устанавливаем черный цвет для рамки
+            HPEN hPen = CreatePen(PS_SOLID, 5, RGB(0, 0, 0)); // Толщина рамки 5 пикселей
+            HPEN hOldPen = (HPEN)SelectObject(hdc, hPen);
+
+            // Получаем размер клиентской области
+            RECT rcClient;
+            GetClientRect(hWnd, &rcClient);
+
+            // Рисуем прямоугольную рамку вокруг окна
+            Rectangle(hdc, rcClient.left, rcClient.top, rcClient.right, rcClient.bottom);
+
+            // Восстанавливаем старую кисть и удаляем созданные ресурсы
+            SelectObject(hdc, hOldPen);
+            DeleteObject(hPen);
+
+            EndPaint(hWnd, &ps);
+        }
+        break;
+
+        case WM_TIMER: {
             // Обновляем окно увеличения
             UpdateMagWindow(hWnd);
         }
         break;
-    case WM_SIZE:
-        {
+        case WM_SIZE: {
             // Изменяем размер окна увеличения при изменении размера основного окна
             RECT rcClient;
             GetClientRect(hWnd, &rcClient);
-            MoveWindow(hMagWnd, 0, 0, rcClient.right - rcClient.left, rcClient.bottom - rcClient.top, TRUE);
+            MoveWindow(hMagWnd, 2, 2, rcClient.right - rcClient.left-4, rcClient.bottom - rcClient.top-4, TRUE);
         }
         break;
-    case WM_LBUTTONDOWN:
-        {
+        case WM_LBUTTONDOWN: {
             bDragging = TRUE;
             SetCapture(hWnd);
             ptLast.x = LOWORD(lParam);
             ptLast.y = HIWORD(lParam);
         }
         break;
-    case WM_MOUSEMOVE:
-        {
-            if (bDragging)
-            {
+        case WM_MOUSEMOVE: {
+            if (bDragging) {
                 POINT pt;
                 pt.x = LOWORD(lParam);
                 pt.y = HIWORD(lParam);
@@ -230,18 +236,16 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
                 int dy = pt.y - ptLast.y;
 
                 MoveWindow(hWnd, rcWindow.left + dx, rcWindow.top + dy,
-                    rcWindow.right - rcWindow.left, rcWindow.bottom - rcWindow.top, TRUE);
+                           rcWindow.right - rcWindow.left, rcWindow.bottom - rcWindow.top, TRUE);
             }
         }
         break;
-    case WM_LBUTTONUP:
-        {
+        case WM_LBUTTONUP: {
             bDragging = FALSE;
             ReleaseCapture();
         }
         break;
-    case WM_RBUTTONUP:
-        {
+        case WM_RBUTTONUP: {
             POINT pt;
             pt.x = LOWORD(lParam);
             pt.y = HIWORD(lParam);
@@ -250,23 +254,21 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
             TrackPopupMenu(hMenu, TPM_RIGHTBUTTON, pt.x, pt.y, 0, hWnd, NULL);
         }
         break;
-    case WM_COMMAND:
-        {
+        case WM_COMMAND: {
             if (LOWORD(wParam) == 1) // "Выйти"
             {
                 PostQuitMessage(0);
             }
         }
         break;
-    case WM_DESTROY:
-        {
+        case WM_DESTROY: {
             KillTimer(hWnd, 1);
             DestroyMenu(hMenu);
             PostQuitMessage(0);
         }
         break;
-    default:
-        return DefWindowProc(hWnd, message, wParam, lParam);
+        default:
+            return DefWindowProc(hWnd, message, wParam, lParam);
     }
     return 0;
 }
