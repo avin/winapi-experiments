@@ -30,25 +30,53 @@ BOOL CALLBACK MyMagImageScalingCallback(HWND hwnd, void* srcdata, MAGIMAGEHEADER
     // Проходим по каждому пикселю и преобразуем его в оттенок серого
     for (int y = 0; y < (int)srcheader.height; y++) {
         for (int x = 0; x < (int)srcheader.width; x++) {
-            // Индекс пикселя
             int index = (y * srcheader.stride) + (x * 4);
 
-            // Получаем компоненты цвета
-            BYTE blue = srcPixels[index] / 2; // TODO <<<
+            // Получаем компоненты текущего пикселя
+            BYTE blue = srcPixels[index];
             BYTE green = srcPixels[index + 1];
             BYTE red = srcPixels[index + 2];
-            BYTE alpha = srcPixels[index + 3];
 
-            // Вычисляем яркость (по формуле: Y = 0.299 * R + 0.587 * G + 0.114 * B)
-            BYTE gray = (BYTE)(0.299 * red + 0.587 * green + 0.114 * blue);
+            bool hasDarkNeighbor = false;
 
-            // Устанавливаем новые значения пикселя
-            destPixels[index] = gray; // Blue
-            destPixels[index + 1] = gray; // Green
-            destPixels[index + 2] = gray; // Red
-            destPixels[index + 3] = alpha; // Alpha
+            // Проверяем соседние пиксели (если они в пределах изображения)
+            int offsets[4][2] = {{-1, 0}, {1, 0}, {0, -1}, {0, 1}};
+            for (auto offset : offsets) {
+                int nx = x + offset[0];
+                int ny = y + offset[1];
+                if (nx >= 0 && nx < (int)srcheader.width && ny >= 0 && ny < (int)srcheader.height) {
+                    int neighborIndex = (ny * srcheader.stride) + (nx * 4);
+                    BYTE nBlue = srcPixels[neighborIndex];
+                    BYTE nGreen = srcPixels[neighborIndex + 1];
+                    BYTE nRed = srcPixels[neighborIndex + 2];
+
+                    // Рассчитываем яркость соседнего пикселя
+                    BYTE neighborBrightness = (BYTE)(0.299 * nRed + 0.587 * nGreen + 0.114 * nBlue);
+
+                    // Проверяем, темнее ли среднее значение
+                    if (neighborBrightness < 128) {
+                        hasDarkNeighbor = true;
+                        break;
+                    }
+                }
+            }
+
+            // Если есть темный соседний пиксель, делаем текущий пиксель черным
+            if (hasDarkNeighbor) {
+                destPixels[index] = 0;       // Blue
+                destPixels[index + 1] = 0;   // Green
+                destPixels[index + 2] = 0;   // Red
+            } else {
+                // Иначе, сохраняем оригинальный оттенок серого
+                BYTE gray = (BYTE)(0.299 * red + 0.587 * green + 0.114 * blue);
+                destPixels[index] = gray;
+                destPixels[index + 1] = gray;
+                destPixels[index + 2] = gray;
+            }
+            destPixels[index + 3] = srcPixels[index + 3]; // Alpha
         }
     }
+
 
     return TRUE;
 }
